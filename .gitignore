@@ -1,0 +1,9 @@
+settings.py
+date.py
+__pycache__/
+*.log
+.vscode/
+.idea/
+env/
+images/
+
