@@ -6,4 +6,5 @@ __pycache__/
 .idea/
 env/
 images/
-ismen_nov.xls
+ismen_nov.xlsx
+vs/

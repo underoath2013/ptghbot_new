@@ -11,15 +11,12 @@ html_page = urlopen(url)
 soup = BeautifulSoup(html_page, "html.parser")
 
 link = []
-for item in soup.findAll('a'):
+for item in soup.find('ismen_nov'):
     link.append(item.get('href'))
+    print(item)
+    break
 
-for index, elem in enumerate(link):
-    if (elem.find('ismen_nov')) != -1:
-        print(elem)
-        break
-
-file_xls = urllib.request.urlopen(elem).read()
-f = open(config.ISMEN_FILE_NAME, "wb")
-f.write(file_xls)
-f.close()
+# file_xls = urllib.request.urlopen(elem).read()
+# f = open(config.ISMEN_FILE_NAME, "wb")
+# f.write(file_xls)
+# f.close()
