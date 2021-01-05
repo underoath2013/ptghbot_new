@@ -1,8 +1,8 @@
 import openpyxl
-book = openpyxl.open('ismen_nov.xlsx', read_only=True)
 
-
-def b_column():
+def choosing_sheets(sheet_name):
+    book = openpyxl.open('ismen_nov.xlsx', read_only=True)
+    sheet = book[sheet_name]
     for row in range(1, sheet.max_row):
         a_column = sheet[row][0].value
         if a_column is None:
@@ -17,9 +17,6 @@ def b_column():
             b_column_split = ' '.join(b_column.split())
             result_abc = str(a_column) + str(b_column_split) + ' ' + str(c_column)
             print(result_abc)
-
-
-def f_column():
     for row in range(1, sheet.max_row):
         e_column = sheet[row][4].value
         if e_column is None:
@@ -36,12 +33,4 @@ def f_column():
             print(result_efg)
 
 
-print(book.sheetnames)
-sheet_name = input('Выберите день: \n') 
-sheet = book[sheet_name]
-
-choise = input('Нажмите 0 для групп: УД31, Т31, Э12, БД12, ПСО11, ПСО21, ПСО31, ПД13, ПД23, ПД32, УД01, УД21, В21, Т21, ИС11\nНажмите 1 для групп: Э22, БД22, ПСО12, ПСО22, ПД12, ПД22, ПД24, ПД33, УД11, В01, Т11, М01, ИС21\n')
-if choise == "0":
-    print(b_column())
-else:
-    print(f_column())
+choosing_sheets('11.01')

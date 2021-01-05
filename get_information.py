@@ -15,7 +15,9 @@ def b_column():
         if b_column is None:
             continue
         else:
-            print(' '.join(a_column.split()), ' '.join(b_column.split()), c_column)
+            b_column_split = ' '.join(b_column.split())
+            result_abc = str(a_column) + str(b_column_split) + ' ' + str(c_column)
+            print(result_abc)
 
 
 b_column()
@@ -33,7 +35,9 @@ def f_column():
         if f_column is None:
             continue
         else:
-            print(' '.join(e_column.split()), ' '.join(f_column.split()), g_column)
+            f_column_split = ' '.join(f_column.split())
+            result_efg = str(e_column) + str(f_column_split) + ' ' + str(g_column)
+            print(result_efg)
 
 
 f_column()
