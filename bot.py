@@ -13,8 +13,10 @@ def greet_user(update, context):
     my_keyboard = ReplyKeyboardMarkup([book.sheetnames], resize_keyboard=True)
     update.message.reply_text("Изменения к расписанию занятий Корпус 1 (ул. Мурманская, д. 30) \n выберите дату:", reply_markup=my_keyboard)
 
+
 def choosing_sheets(update, context, sheet_name):
     book = openpyxl.open('ismen_nov.xlsx', read_only=True)
+    context.user_data['sheet_name'] = sheet_name
     sheet = book[sheet_name]
     for row in range(1, sheet.max_row):
         a_column = sheet[row][0].value
@@ -51,8 +53,10 @@ def main():
     mybot = Updater(settings.API_KEY, use_context=True)
 
     dp = mybot.dispatcher
+
     dp.add_handler(CommandHandler("start", greet_user))
     dp.add_handler(CommandHandler("show", choosing_sheets))
+    # dp.add_handler(MessageHandler(Filters.regex('^((3[01]|[12][0-9]|0[1-9]).(1[0-2]|0[1-9]))$')), choosing_sheets)
         
     logging.info("bot started")
     mybot.start_polling()
