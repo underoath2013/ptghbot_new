@@ -7,6 +7,13 @@ import settings
 logging.basicConfig(filename="bot.log", level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
 
+# def get_sheet_name(user_data):
+#     if 'emoji' not in user_data:
+#         smile = choice(settings.USER_EMOJI)
+#         return emojize(smile, use_aliases = True)
+#     return user_data['emoji']
+
+
 def greet_user(update, context):
     print("Вызван /start")
     book = openpyxl.open('ismen_nov.xlsx', read_only=True)
@@ -17,6 +24,7 @@ def greet_user(update, context):
 def choosing_sheets(update, context, sheet_name):
     book = openpyxl.open('ismen_nov.xlsx', read_only=True)
     context.user_data['sheet_name'] = sheet_name
+
     sheet = book[sheet_name]
     for row in range(1, sheet.max_row):
         a_column = sheet[row][0].value
@@ -65,3 +73,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
