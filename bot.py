@@ -21,11 +21,9 @@ def greet_user(update, context):
     update.message.reply_text("Изменения к расписанию занятий Корпус 1 (ул. Мурманская, д. 30) \n выберите дату:", reply_markup=my_keyboard)
 
 
-def choosing_sheets(update, context, sheet_name):
+def choosing_sheets(update, context):
     book = openpyxl.open('ismen_nov.xlsx', read_only=True)
-    context.user_data['sheet_name'] = sheet_name
-
-    sheet = book[sheet_name]
+    sheet = book.active
     for row in range(1, sheet.max_row):
         a_column = sheet[row][0].value
         if a_column is None:
@@ -54,7 +52,7 @@ def choosing_sheets(update, context, sheet_name):
             f_column_split = ' '.join(f_column.split())
             result_efg = str(e_column) + str(f_column_split) + ' ' + str(g_column)
             print(result_efg)
-    update.message.reply_text(choosing_sheets)
+    
 
 
 def main():
@@ -63,7 +61,7 @@ def main():
     dp = mybot.dispatcher
 
     dp.add_handler(CommandHandler("start", greet_user))
-    dp.add_handler(CommandHandler("show", choosing_sheets))
+    # dp.add_handler(CommandHandler("show", choosing_sheets))
     # dp.add_handler(MessageHandler(Filters.regex('^((3[01]|[12][0-9]|0[1-9]).(1[0-2]|0[1-9]))$')), choosing_sheets)
         
     logging.info("bot started")
