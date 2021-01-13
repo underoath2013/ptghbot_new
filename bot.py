@@ -7,13 +7,6 @@ import settings
 logging.basicConfig(filename="bot.log", level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
 
-# def get_sheet_name(user_data):
-#     if 'emoji' not in user_data:
-#         smile = choice(settings.USER_EMOJI)
-#         return emojize(smile, use_aliases = True)
-#     return user_data['emoji']
-
-
 def greet_user(update, context):
     print("Вызван /start")
     book = openpyxl.open('ismen_nov.xlsx', read_only=True)
@@ -23,7 +16,9 @@ def greet_user(update, context):
 
 def choosing_sheets(update, context):
     book = openpyxl.open('ismen_nov.xlsx', read_only=True)
-    sheet = book.active
+    user_text = update.message.text
+    print(user_text)
+    sheet = book[user_text]
     for row in range(1, sheet.max_row):
         a_column = sheet[row][0].value
         if a_column is None:
@@ -37,7 +32,7 @@ def choosing_sheets(update, context):
         else:
             b_column_split = ' '.join(b_column.split())
             result_abc = str(a_column) + str(b_column_split) + ' ' + str(c_column)
-            print(result_abc)
+            update.message.reply_text(result_abc)
     for row in range(1, sheet.max_row):
         e_column = sheet[row][4].value
         if e_column is None:
@@ -51,8 +46,7 @@ def choosing_sheets(update, context):
         else:
             f_column_split = ' '.join(f_column.split())
             result_efg = str(e_column) + str(f_column_split) + ' ' + str(g_column)
-            print(result_efg)
-    
+            update.message.reply_text(result_efg)
 
 
 def main():
@@ -61,8 +55,7 @@ def main():
     dp = mybot.dispatcher
 
     dp.add_handler(CommandHandler("start", greet_user))
-    # dp.add_handler(CommandHandler("show", choosing_sheets))
-    # dp.add_handler(MessageHandler(Filters.regex('^((3[01]|[12][0-9]|0[1-9]).(1[0-2]|0[1-9]))$')), choosing_sheets)
+    dp.add_handler(MessageHandler(Filters.regex('^((3[01]|[12][0-9]|0[1-9]).(1[0-2]|0[1-9]))$'), choosing_sheets))
         
     logging.info("bot started")
     mybot.start_polling()
