@@ -49,7 +49,7 @@ def choose_sheet(update, context):
         if a_column is None:
             a_column = ''
         c_column = sheet[row][2].value
-        if c_column is None:
+        if c_column is None or c_column == 'ауд.':
             c_column = ''
         b_column = sheet[row][1].value
         if b_column is None:
@@ -63,7 +63,7 @@ def choose_sheet(update, context):
         if e_column is None:
             e_column = ''
         g_column = sheet[row][6].value
-        if g_column is None:
+        if g_column is None or g_column == 'ауд.':
             g_column = ''
         f_column = sheet[row][5].value
         if f_column is None:
@@ -81,9 +81,9 @@ def choose_sheet(update, context):
     last_slice = schedule[idx1[-1]:]
     dict_groups[last_slice[0]] = last_slice[1:]
     groups_list = list(dict_groups.keys())
-    n = 2 
+    n = 4
     group_names = [groups_list[i * n:(i + 1) * n] for i in range((len(groups_list) + n - 1) // n)]
-    my_keyboard = ReplyKeyboardMarkup(group_names)
+    my_keyboard = ReplyKeyboardMarkup(group_names, resize_keyboard=True)
     update.message.reply_text("Выберите группу:", reply_markup=my_keyboard)
     return "step_two"
 
@@ -98,7 +98,7 @@ def print_schedule(update, context):
         if a_column is None:
             a_column = ''
         c_column = sheet[row][2].value
-        if c_column is None:
+        if c_column is None or c_column == 'ауд.':
             c_column = ''
         b_column = sheet[row][1].value
         if b_column is None:
@@ -112,7 +112,7 @@ def print_schedule(update, context):
         if e_column is None:
             e_column = ''
         g_column = sheet[row][6].value
-        if g_column is None:
+        if g_column is None or g_column == 'ауд.':
             g_column = ''
         f_column = sheet[row][5].value
         if f_column is None:
@@ -133,6 +133,7 @@ def print_schedule(update, context):
     my_keyboard = ReplyKeyboardMarkup([['Расписание']], resize_keyboard=True)
     update.message.reply_text(selected_group, reply_markup=my_keyboard)
     return ConversationHandler.END
+
 
 def main():
     mybot = Updater(settings.API_KEY, use_context=True)
