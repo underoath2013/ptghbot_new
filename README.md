@@ -1,5 +1,7 @@
 # Ptghbot
-Это бот для Telegram, для вывода расписания учебного заведения
+Это бот для Telegram, осуществляющий вывод информации об изменениях к расписанию учебного заведения https://ptgh.onego.ru/
+Это учебный проект для демонстрации изученного материала на курсах learnpython.ru
+Ознакомиться с функционалом и просмотреть работу -> @ptghbot
 
 ## Установка
 
@@ -14,6 +16,5 @@ API_KEY = "API -ключ бота"
 PROXY_URL = "URL socks5-прокси"
 PROXY_USERNAME = "Username для авторизации на прокси"
 PROXY_PASSWORD = "Пароль  для авторизации на прокси"
-USER_EMOJI = [':smiley_cat:', ':panda_face:', ':dog:', ':dollar:', ':bowtie:', ':flushed:', ':smiley:', ':wink:']
 ``` 
 7. Запустите бота командой `python bot.py`
