@@ -16,7 +16,7 @@ logging.basicConfig(filename="bot.log", level=logging.INFO, format='%(asctime)s 
 
 
 def bot_commands(update, context):
-    update.message.reply_text("/start - старт бота\n /subscribe - получать уведомление о новом расписании\n /unsubscribe - отписаться от уведомлений")
+    update.message.reply_text("/start - старт бота\n/subscribe - получать уведомление о новом расписании\n/unsubscribe - отписаться от уведомлений")
 
 
 def subscribe(update, context):
@@ -74,13 +74,13 @@ def greet_user(update, context):
     user = get_or_create_user(db, update.effective_user, update.message.chat.id)
     print("Вызван /start")
     my_keyboard = ReplyKeyboardMarkup([['Расписание'], ['Команды бота']], resize_keyboard=True)
-    update.message.reply_text("Привет, чтобы узнать расписание нажми кнопку", reply_markup=my_keyboard)
+    update.message.reply_text("Привет, чтобы узнать расписание нажми кнопку\nУведомления можно подключить в 'Команды бота'", reply_markup=my_keyboard)
 
 
 def dialog_start(update, context):
     book = openpyxl.open(new_elem_replace, read_only=True)
     my_keyboard = ReplyKeyboardMarkup([book.sheetnames], resize_keyboard=True)
-    update.message.reply_text("Изменения к расписанию занятий Корпус 1 (ул. Мурманская, д. 30) \n выберите дату:", reply_markup=my_keyboard)
+    update.message.reply_text("Изменения к расписанию занятий Корпус 1 (ул. Мурманская, д. 30)\nвыберите дату:", reply_markup=my_keyboard)
     return "step_one"
 
 
@@ -184,7 +184,7 @@ def print_schedule(update, context):
 def main():
     mybot = Updater(settings.API_KEY, use_context=True)
     jq = mybot.job_queue
-    jq.run_repeating(working_with_files, interval=1800, first=1)
+    jq.run_repeating(working_with_files, interval=3600, first=1)
     dp = mybot.dispatcher
     dialog = ConversationHandler(
         entry_points=[
