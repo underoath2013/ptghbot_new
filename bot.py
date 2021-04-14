@@ -10,13 +10,14 @@ from urllib.request import Request, urlopen
 import urllib.request
 from urllib.parse import urlparse
 import os.path
+from random import choice
 from db import db, get_or_create_user, subscribe_user, unsubscribe_user, get_subsribed
 
 logging.basicConfig(filename="bot.log", level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
 
 def bot_commands(update, context):
-    update.message.reply_text("/start - старт бота\n/subscribe - получать уведомление о новом расписании\n/unsubscribe - отписаться от уведомлений")
+    update.message.reply_text("/start - старт бота\n/subscribe - получать уведомление о новом расписании\n/unsubscribe - отписаться от уведомлений\nавтор бота @drbrch, принимаю в лс предложения/замечания")
 
 
 def subscribe(update, context):
@@ -60,9 +61,9 @@ def working_with_files(context):
             f = open(new_elem_replace, "wb")
             f.write(file_xlsx)
             f.close()
-            print('доступно новое расписание')
+            print('Расписание обновлено')
             for user in get_subsribed(db):
-                context.bot.send_message(chat_id=user['chat_id'], text='Доступно новое расписание')
+                context.bot.send_message(chat_id=user['chat_id'], text='Расписание обновлено')
     file_list = glob.glob('*.xlsx')
     for item in file_list:
         print(item)
@@ -73,8 +74,17 @@ def working_with_files(context):
 def greet_user(update, context):
     user = get_or_create_user(db, update.effective_user, update.message.chat.id)
     print("Вызван /start")
-    my_keyboard = ReplyKeyboardMarkup([['Расписание'], ['Команды бота']], resize_keyboard=True)
+    my_keyboard = ReplyKeyboardMarkup([['Расписание'], ['Команды бота'], ['Звонки']], resize_keyboard=True)
     update.message.reply_text("Привет, чтобы узнать расписание нажми кнопку\nУведомления можно подключить в 'Команды бота'", reply_markup=my_keyboard)
+
+
+def show_rings(update, context):
+    user = get_or_create_user(db, update.effective_user, update.message.chat.id)
+    rings_list = glob.glob('images/rings*.jp*g')
+    rings_pic_filename = choice(rings_list)
+    #chat_id = update.effective_chat.id
+    my_keyboard = ReplyKeyboardMarkup([['Расписание'], ['Команды бота'], ['Звонки']], resize_keyboard=True)
+    context.bot.send_photo(chat_id=user['chat_id'], photo = open(rings_pic_filename, 'rb'), reply_markup = my_keyboard)
 
 
 def dialog_start(update, context):
@@ -118,7 +128,7 @@ def choose_sheet(update, context):
             f_column_split = ' '.join(f_column.split())
             result_efg = str(e_column) + str(f_column_split) + str(g_column)
             schedule.append(result_efg)
-    groups = re.compile(r'([ЭМТВ]\s[0-4][0-4])|([ЭМТВ]\s[0-4])|([БУИП][ДС]\s[0-4][0-4]|[ИБПУ][СД]\s[0-4])|([П][С][О]\s[0-4][0-4])|([ВМ][0-4]|[У][Д][0-4])')
+    groups = re.compile(r'(БД 12)|(БД 22)|(ИС 11)|(ИС 21)|(ИС 31)|(В 01)|(В 21)|(М 01)|(ПД 12)|(ПД 13)|(ПД 22)|(ПД 23)|(ПД 24)|(ПД 32)|(ПД 33)|(ПД 34)|(ПСО 11)|(ПСО 12)|(ПСО 21)|(ПСО 22)|(ПСО 31)|(ПСО 32)|(Т 11)|(Т 21)|(Т 31)|(УД 01)|(УД 11)|(УД 21)|(УД 31)|(Э 12)|(Э 22)')
     idx1 = [i for i, item in enumerate(schedule) if re.search(groups, item)]
     dict_groups = {}
     for i in range(len(idx1)-1):
@@ -167,7 +177,7 @@ def print_schedule(update, context):
             f_column_split = ' '.join(f_column.split())
             result_efg = str(e_column) + str(f_column_split) + str(g_column)
             schedule.append(result_efg)
-    groups = re.compile(r'([ЭМТВ]\s[0-4][0-4])|([ЭМТВ]\s[0-4])|([БУИП][ДС]\s[0-4][0-4]|[ИБПУ][СД]\s[0-4])|([П][С][О]\s[0-4][0-4])|([ВМ][0-4]|[У][Д][0-4])')
+    groups = re.compile(r'(БД 12)|(БД 22)|(ИС 11)|(ИС 21)|(ИС 31)|(В 01)|(В 21)|(М 01)|(ПД 12)|(ПД 13)|(ПД 22)|(ПД 23)|(ПД 24)|(ПД 32)|(ПД 33)|(ПД 34)|(ПСО 11)|(ПСО 12)|(ПСО 21)|(ПСО 22)|(ПСО 31)|(ПСО 32)|(Т 11)|(Т 21)|(Т 31)|(УД 01)|(УД 11)|(УД 21)|(УД 31)|(Э 12)|(Э 22)')
     idx1 = [i for i, item in enumerate(schedule) if re.search(groups, item)]
     dict_groups = {}
     for i in range(len(idx1)-1):
@@ -176,7 +186,7 @@ def print_schedule(update, context):
     last_slice = schedule[idx1[-1]:]
     dict_groups[last_slice[0]] = last_slice[1:]
     selected_group = str(dict_groups[context.user_data["dialog"]["group"]]).replace(',','\n')
-    my_keyboard = ReplyKeyboardMarkup([['Расписание'], ['Команды бота']], resize_keyboard=True)
+    my_keyboard = ReplyKeyboardMarkup([['Расписание'], ['Команды бота'], ['Звонки']], resize_keyboard=True)
     update.message.reply_text(selected_group, reply_markup=my_keyboard)
     return ConversationHandler.END
 
@@ -199,7 +209,9 @@ def main():
     dp.add_handler(dialog)
     dp.add_handler(CommandHandler('subscribe', subscribe))
     dp.add_handler(CommandHandler('unsubscribe', unsubscribe))
+    dp.add_handler(CommandHandler('show_rings', show_rings))
     dp.add_handler(CommandHandler("start", greet_user))
+    dp.add_handler(MessageHandler(Filters.regex('^([Зз]вонки)$'), show_rings))
     dp.add_handler(MessageHandler(Filters.regex('^([Кк]оманды бота)$'), bot_commands))
     logging.info("bot started")
     mybot.start_polling()
