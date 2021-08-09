@@ -1,0 +1,11 @@
+settings.py
+__pycache__/
+*.log
+.vscode/
+.idea/
+env/
+images/
+.vs/
+test/
+setup.cfg
+*.xlsx
