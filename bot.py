@@ -31,8 +31,9 @@ def bot_commands(update, context):
 
 
 def main_keyboard():
-    return ReplyKeyboardMarkup([['Расписание'], ['Команды бота'], 
-                                ['Звонки']], resize_keyboard=True)
+    return ReplyKeyboardMarkup([['Скачать основное', 'Скачать изменения'],
+                         ['Просмотреть изменения'], ['Команды бота', 'Звонки']]
+                               , resize_keyboard=True)
 
 
 def subscribe(update, context):
@@ -94,10 +95,12 @@ def greet_user(update, context):
     user = get_or_create_user(db, update.effective_user, update.message.chat.id)
     print("Вызван /start")
     update.message.reply_text("Привет, чтобы узнать расписание нажми кнопку\n"
-                              "Уведомления можно подключить в 'Команды бота'",
+                              "Уведомления об обновлении расписания\n"
+                               "можно подключить в 'Команды бота'",
                               reply_markup=main_keyboard())
 
 # chat_id = update.effective_chat.id - получить chat.id текущего пользователя
+
 
 def show_rings(update, context):
     user = get_or_create_user(db, update.effective_user, update.message.chat.id)
@@ -118,13 +121,7 @@ def dialog_start(update, context):
     return "step_one"
 
 
-def choose_sheet(update, context):
-    book = openpyxl.open(new_elem_replace, read_only=True)
-    user_text = update.message.text
-    context.user_data["dialog"] = {"sheet": user_text}
-    sheet = book[context.user_data["dialog"]["sheet"]]
-# parsing_excel(sheet) - здесь заменить на вынесенную функцию
-    sheet = book[context.user_data["dialog"]["sheet"]]
+def parsing_changes_xlsx(sheet):
     schedule = []
     for row in range(1, sheet.max_row):
         a_column = sheet[row][0].value
@@ -154,21 +151,29 @@ def choose_sheet(update, context):
             f_column_split = ' '.join(f_column.split())
             result_efg = str(e_column) + str(f_column_split) + str(g_column)
             schedule.append(result_efg)
+    return schedule
+
+
+def choose_sheet(update, context):
+    book = openpyxl.open(new_elem_replace, read_only=True)
+    user_text = update.message.text
+    context.user_data["dialog"] = {"sheet": user_text}
+    sheet = book[context.user_data["dialog"]["sheet"]]
+    parsed_schedule = parsing_changes_xlsx(sheet)
     groups = re.compile(
         r'(БД 12)|(БД 22)|(ИС 11)|(ИС 21)|(ИС 31)|(В 01)|(В 21)|(М 01)|(ПД 12)|'
         r'(ПД 13)|(ПД 22)|(ПД 23)|(ПД 24)|(ПД 32)|(ПД 33)|(ПД 34)|(ПСО 11)|'
         r'(ПСО 12)|(ПСО 21)|(ПСО 22)|(ПСО 31)|(ПСО 32)|(Т 11)|(Т 21)|(Т 31)|'
         r'(УД 01)|(УД 11)|(УД 21)|(УД 31)|(Э 12)|(Э 22)')
-    idx1 = [i for i, item in enumerate(schedule) if re.search(groups, item)]
+    idx1 = [i for i, item in enumerate(parsed_schedule) if re.search(groups, item)]
     dict_groups = {}
     for i in range(len(idx1) - 1):
-        slices = schedule[idx1[i]:idx1[i + 1]]
+        slices = parsed_schedule[idx1[i]:idx1[i + 1]]
         dict_groups[slices[0]] = slices[1:]
     try:
-        last_slice = schedule[idx1[-1]:]
+        last_slice = parsed_schedule[idx1[-1]:]
     except IndexError:
-        update.message.reply_text("На этот день ничего нет")
-        greet_user(update, context)
+        update.message.reply_text("На этот день ничего нет", reply_markup=main_keyboard())
         return ConversationHandler.END
     dict_groups[last_slice[0]] = last_slice[1:]
     groups_list = list(dict_groups.keys())
@@ -184,46 +189,18 @@ def print_schedule(update, context):
     context.user_data["dialog"]["group"] = update.message.text
     book = openpyxl.open(new_elem_replace, read_only=True)
     sheet = book[context.user_data["dialog"]["sheet"]]
-    schedule = []
-    for row in range(1, sheet.max_row):
-        a_column = sheet[row][0].value
-        if a_column is None:
-            a_column = ''
-        c_column = sheet[row][2].value
-        if c_column is None or c_column == 'ауд.':
-            c_column = ''
-        b_column = sheet[row][1].value
-        if b_column is None:
-            continue
-        else:
-            b_column_split = ' '.join(b_column.split())
-            result_abc = str(a_column) + str(b_column_split) + str(c_column)
-            schedule.append(result_abc)
-    for row in range(1, sheet.max_row):
-        e_column = sheet[row][4].value
-        if e_column is None:
-            e_column = ''
-        g_column = sheet[row][6].value
-        if g_column is None or g_column == 'ауд.':
-            g_column = ''
-        f_column = sheet[row][5].value
-        if f_column is None:
-            continue
-        else:
-            f_column_split = ' '.join(f_column.split())
-            result_efg = str(e_column) + str(f_column_split) + str(g_column)
-            schedule.append(result_efg)
+    parsed_schedule = parsing_changes_xlsx(sheet)
     groups = re.compile(
         r'(БД 12)|(БД 22)|(ИС 11)|(ИС 21)|(ИС 31)|(В 01)|(В 21)|(М 01)|(ПД 12)|'
         r'(ПД 13)|(ПД 22)|(ПД 23)|(ПД 24)|(ПД 32)|(ПД 33)|(ПД 34)|(ПСО 11)|'
         r'(ПСО 12)|(ПСО 21)|(ПСО 22)|(ПСО 31)|(ПСО 32)|(Т 11)|(Т 21)|(Т 31)|'
         r'(УД 01)|(УД 11)|(УД 21)|(УД 31)|(Э 12)|(Э 22)')
-    idx1 = [i for i, item in enumerate(schedule) if re.search(groups, item)]
+    idx1 = [i for i, item in enumerate(parsed_schedule) if re.search(groups, item)]
     dict_groups = {}
     for i in range(len(idx1) - 1):
-        slices = schedule[idx1[i]:idx1[i + 1]]
+        slices = parsed_schedule[idx1[i]:idx1[i + 1]]
         dict_groups[slices[0]] = slices[1:]
-    last_slice = schedule[idx1[-1]:]
+    last_slice = parsed_schedule[idx1[-1]:]
     dict_groups[last_slice[0]] = last_slice[1:]
     selected_group = str(
         dict_groups[context.user_data["dialog"]["group"]])\
@@ -239,7 +216,7 @@ def main():
     dp = mybot.dispatcher
     dialog = ConversationHandler(
         entry_points=[
-            MessageHandler(Filters.regex('^([Рр]асписание)$'), dialog_start)
+            MessageHandler(Filters.regex('^([Пп]росмотреть изменения)$'), dialog_start)
         ],
         states={
             "step_one": [MessageHandler(
