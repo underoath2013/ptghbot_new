@@ -1,27 +1,28 @@
-import logging
+from bs4 import BeautifulSoup
+from db import db, get_or_create_user, subscribe_user, unsubscribe_user, \
+    get_subsribed
 import glob
+import logging
+import openpyxl
+import os.path
+from random import choice
+import re
+import settings
 from telegram import ReplyKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, ConversationHandler, \
-                         MessageHandler, Filters
-import openpyxl
-import settings
-import re
-# import parsing_excel
-from bs4 import BeautifulSoup
+    MessageHandler, Filters
+from telegram.error import NetworkError, Unauthorized
 from urllib.request import Request, urlopen
 import urllib.request
 from urllib.parse import urlparse
-import os.path
-from random import choice
-from db import db, get_or_create_user, subscribe_user, unsubscribe_user, \
-                   get_subsribed
-from telegram.error import NetworkError, Unauthorized
 
-logging.basicConfig(filename="bot.log", level=logging.INFO,
-                    format='%(asctime)s - %(name)s'
-                           ' - %(levelname)s - %(message)s')
+logging.basicConfig(
+    filename="bot.log", level=logging.INFO, format=
+    '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 
 
+# Доступные команды для работы с ботом
 def bot_commands(update, context):
     update.message.reply_text("/start - старт бота\n/subscribe - "
                               "получать уведомление о новом расписании\n"
@@ -30,18 +31,22 @@ def bot_commands(update, context):
                               " принимаю в лс предложения/замечания")
 
 
+# Клавиатура главного меню
 def main_keyboard():
-    return ReplyKeyboardMarkup([['Скачать основное', 'Скачать изменения'],
-                         ['Просмотреть изменения'], ['Команды бота', 'Звонки']]
-                               , resize_keyboard=True)
+    return ReplyKeyboardMarkup(
+        [['Скачать основное', 'Скачать изменения'], ['Просмотреть изменения'],
+         ['Команды бота', 'Звонки']], resize_keyboard=True
+    )
 
 
+# При вызове этой функции пользователь подписывается на рассылку уведомлений
 def subscribe(update, context):
     user = get_or_create_user(db, update.effective_user, update.message.chat.id)
     subscribe_user(db, user)
     update.message.reply_text('Уведомления о новом расписании подключены')
 
 
+# При вызове этой функции пользователь отписывается от рассылки уведомлений
 def unsubscribe(update, context):
     user = get_or_create_user(db, update.effective_user, update.message.chat.id)
     unsubscribe_user(db, user)
@@ -88,7 +93,7 @@ def working_with_files(context):
                     context.bot.send_message(chat_id=user['chat_id'],
                                              text='Расписание обновлено')
                 except Unauthorized:
-                    print(f"Пользователь заблокировал бота {user['chat_id']}") 
+                    print(f"Пользователь заблокировал бота {user['chat_id']}")
 
 
 def greet_user(update, context):
@@ -96,8 +101,9 @@ def greet_user(update, context):
     print("Вызван /start")
     update.message.reply_text("Привет, чтобы узнать расписание нажми кнопку\n"
                               "Уведомления об обновлении расписания\n"
-                               "можно подключить в 'Команды бота'",
+                              "можно подключить в 'Команды бота'",
                               reply_markup=main_keyboard())
+
 
 # chat_id = update.effective_chat.id - получить chat.id текущего пользователя
 
@@ -121,6 +127,7 @@ def dialog_start(update, context):
     return "step_one"
 
 
+# Функция обрабатывает excel файл "Изменения к расписанию"
 def parsing_changes_xlsx(sheet):
     schedule = []
     for row in range(1, sheet.max_row):
@@ -153,6 +160,9 @@ def parsing_changes_xlsx(sheet):
             schedule.append(result_efg)
     return schedule
 
+# Функция ищет группы в списке shedule и добавляет в словарь dict_groups
+def searching_groups_in_changes_xlsx():
+
 
 def choose_sheet(update, context):
     book = openpyxl.open(new_elem_replace, read_only=True)
@@ -165,7 +175,8 @@ def choose_sheet(update, context):
         r'(ПД 13)|(ПД 22)|(ПД 23)|(ПД 24)|(ПД 32)|(ПД 33)|(ПД 34)|(ПСО 11)|'
         r'(ПСО 12)|(ПСО 21)|(ПСО 22)|(ПСО 31)|(ПСО 32)|(Т 11)|(Т 21)|(Т 31)|'
         r'(УД 01)|(УД 11)|(УД 21)|(УД 31)|(Э 12)|(Э 22)')
-    idx1 = [i for i, item in enumerate(parsed_schedule) if re.search(groups, item)]
+    idx1 = [i for i, item in enumerate(parsed_schedule) if
+            re.search(groups, item)]
     dict_groups = {}
     for i in range(len(idx1) - 1):
         slices = parsed_schedule[idx1[i]:idx1[i + 1]]
@@ -173,7 +184,8 @@ def choose_sheet(update, context):
     try:
         last_slice = parsed_schedule[idx1[-1]:]
     except IndexError:
-        update.message.reply_text("На этот день ничего нет", reply_markup=main_keyboard())
+        update.message.reply_text("На этот день ничего нет",
+                                  reply_markup=main_keyboard())
         return ConversationHandler.END
     dict_groups[last_slice[0]] = last_slice[1:]
     groups_list = list(dict_groups.keys())
@@ -195,7 +207,8 @@ def print_schedule(update, context):
         r'(ПД 13)|(ПД 22)|(ПД 23)|(ПД 24)|(ПД 32)|(ПД 33)|(ПД 34)|(ПСО 11)|'
         r'(ПСО 12)|(ПСО 21)|(ПСО 22)|(ПСО 31)|(ПСО 32)|(Т 11)|(Т 21)|(Т 31)|'
         r'(УД 01)|(УД 11)|(УД 21)|(УД 31)|(Э 12)|(Э 22)')
-    idx1 = [i for i, item in enumerate(parsed_schedule) if re.search(groups, item)]
+    idx1 = [i for i, item in enumerate(parsed_schedule) if
+            re.search(groups, item)]
     dict_groups = {}
     for i in range(len(idx1) - 1):
         slices = parsed_schedule[idx1[i]:idx1[i + 1]]
@@ -203,7 +216,7 @@ def print_schedule(update, context):
     last_slice = parsed_schedule[idx1[-1]:]
     dict_groups[last_slice[0]] = last_slice[1:]
     selected_group = str(
-        dict_groups[context.user_data["dialog"]["group"]])\
+        dict_groups[context.user_data["dialog"]["group"]]) \
         .replace(',', '\n').replace('[', '').replace(']', '').replace("'", "")
     update.message.reply_text(selected_group, reply_markup=main_keyboard())
     return ConversationHandler.END
@@ -212,11 +225,12 @@ def print_schedule(update, context):
 def main():
     mybot = Updater(settings.API_KEY, use_context=True)
     jq = mybot.job_queue
-    jq.run_repeating(working_with_files, interval=3600, first=1)
+    jq.run_repeating(working_with_files, interval=5400, first=1)
     dp = mybot.dispatcher
     dialog = ConversationHandler(
         entry_points=[
-            MessageHandler(Filters.regex('^([Пп]росмотреть изменения)$'), dialog_start)
+            MessageHandler(Filters.regex('^([Пп]росмотреть изменения)$'),
+                           dialog_start)
         ],
         states={
             "step_one": [MessageHandler(
