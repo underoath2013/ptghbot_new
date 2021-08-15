@@ -160,9 +160,6 @@ def parsing_changes_xlsx(sheet):
             schedule.append(result_efg)
     return schedule
 
-# Функция ищет группы в списке shedule и добавляет в словарь dict_groups
-def searching_groups_in_changes_xlsx():
-
 
 def choose_sheet(update, context):
     book = openpyxl.open(new_elem_replace, read_only=True)
@@ -188,6 +185,8 @@ def choose_sheet(update, context):
                                   reply_markup=main_keyboard())
         return ConversationHandler.END
     dict_groups[last_slice[0]] = last_slice[1:]
+    context.user_data["dict_groups"] = dict_groups
+    print(dict_groups)
     groups_list = list(dict_groups.keys())
     n = 4
     group_names = [groups_list[i * n:(i + 1) * n] for i in
@@ -199,24 +198,8 @@ def choose_sheet(update, context):
 
 def print_schedule(update, context):
     context.user_data["dialog"]["group"] = update.message.text
-    book = openpyxl.open(new_elem_replace, read_only=True)
-    sheet = book[context.user_data["dialog"]["sheet"]]
-    parsed_schedule = parsing_changes_xlsx(sheet)
-    groups = re.compile(
-        r'(БД 12)|(БД 22)|(ИС 11)|(ИС 21)|(ИС 31)|(В 01)|(В 21)|(М 01)|(ПД 12)|'
-        r'(ПД 13)|(ПД 22)|(ПД 23)|(ПД 24)|(ПД 32)|(ПД 33)|(ПД 34)|(ПСО 11)|'
-        r'(ПСО 12)|(ПСО 21)|(ПСО 22)|(ПСО 31)|(ПСО 32)|(Т 11)|(Т 21)|(Т 31)|'
-        r'(УД 01)|(УД 11)|(УД 21)|(УД 31)|(Э 12)|(Э 22)')
-    idx1 = [i for i, item in enumerate(parsed_schedule) if
-            re.search(groups, item)]
-    dict_groups = {}
-    for i in range(len(idx1) - 1):
-        slices = parsed_schedule[idx1[i]:idx1[i + 1]]
-        dict_groups[slices[0]] = slices[1:]
-    last_slice = parsed_schedule[idx1[-1]:]
-    dict_groups[last_slice[0]] = last_slice[1:]
     selected_group = str(
-        dict_groups[context.user_data["dialog"]["group"]]) \
+        context.user_data["dict_groups"][context.user_data["dialog"]["group"]])\
         .replace(',', '\n').replace('[', '').replace(']', '').replace("'", "")
     update.message.reply_text(selected_group, reply_markup=main_keyboard())
     return ConversationHandler.END
@@ -234,7 +217,7 @@ def main():
         ],
         states={
             "step_one": [MessageHandler(
-                Filters.regex('^((3[01]|[12][0-9]|0[1-9]).(1[0-2]|0[1-9]))$'),
+                Filters.regex('\d\d.\d\d'),
                 choose_sheet)],
             "step_two": [MessageHandler(Filters.regex(
                 '(([ЭМТВ].[0-4][0-4])|([ЭМТВ].[0-4])|([БУИП][ДС].[0-4][0-4]|'
