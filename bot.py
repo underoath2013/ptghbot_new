@@ -22,8 +22,8 @@ logging.basicConfig(
 )
 
 
-# Доступные команды для работы с ботом
 def bot_commands(update, context):
+    """ Доступные команды для работы с ботом """
     update.message.reply_text("/start - старт бота\n/subscribe - "
                               "получать уведомление о новом расписании\n"
                               "/unsubscribe - отписаться от уведомлений\n"
@@ -31,29 +31,34 @@ def bot_commands(update, context):
                               " принимаю в лс предложения/замечания")
 
 
-# Клавиатура главного меню
 def main_keyboard():
+    """ Клавиатура главного меню """
     return ReplyKeyboardMarkup(
         [['Скачать основное', 'Скачать изменения'], ['Просмотреть изменения'],
          ['Команды бота', 'Звонки']], resize_keyboard=True
     )
 
 
-# При вызове этой функции пользователь подписывается на рассылку уведомлений
 def subscribe(update, context):
+    """ При вызове этой функции пользователь подписывается на рассылку
+    уведомлений """
     user = get_or_create_user(db, update.effective_user, update.message.chat.id)
     subscribe_user(db, user)
     update.message.reply_text('Уведомления о новом расписании подключены')
 
 
-# При вызове этой функции пользователь отписывается от рассылки уведомлений
 def unsubscribe(update, context):
+    """ При вызове этой функции пользователь отписывается от рассылки
+        уведомлений """
     user = get_or_create_user(db, update.effective_user, update.message.chat.id)
     unsubscribe_user(db, user)
     update.message.reply_text('Уведомления о новом расписании отключены')
 
 
 def working_with_files(context):
+    """ Ищет по указанному URL файл с изменениями к основному
+     расписанию, сравнивает часть ссылки с именем файла в каталоге, при
+     различии в именах, качает новый файл, удаляет старый """
     print("I'm working...")
     DATASET_URL = "https://ptgh.onego.ru/9006/"
     url = Request(DATASET_URL)
@@ -97,6 +102,7 @@ def working_with_files(context):
 
 
 def greet_user(update, context):
+    """ Приветствует пользователя, выводит основную клавиатуру """
     user = get_or_create_user(db, update.effective_user, update.message.chat.id)
     print("Вызван /start")
     update.message.reply_text("Привет, чтобы узнать расписание нажми кнопку\n"
@@ -109,6 +115,8 @@ def greet_user(update, context):
 
 
 def show_rings(update, context):
+    """ Выводит список звонков. Также будет выводить в случайном порядке
+     любые jpeg файлы в каталоге images """
     user = get_or_create_user(db, update.effective_user, update.message.chat.id)
     rings_list = glob.glob('images/rings*.jp*g')
     rings_pic_filename = choice(rings_list)
@@ -127,8 +135,8 @@ def dialog_start(update, context):
     return "step_one"
 
 
-# Функция обрабатывает excel файл "Изменения к расписанию"
 def parsing_changes_xlsx(sheet):
+    """  Обрабатывает excel файл с изменениями к расписанию """
     schedule = []
     for row in range(1, sheet.max_row):
         a_column = sheet[row][0].value
@@ -162,6 +170,9 @@ def parsing_changes_xlsx(sheet):
 
 
 def choose_sheet(update, context):
+    """ Парсит по именам группы расписание на выбранную пользователем дату,
+    формирует словарь dict_groups и записывает его во встроенный словарь
+    context.user_data, выводит списко групп пользователю """
     book = openpyxl.open(new_elem_replace, read_only=True)
     user_text = update.message.text
     context.user_data["dialog"] = {"sheet": user_text}
@@ -186,7 +197,6 @@ def choose_sheet(update, context):
         return ConversationHandler.END
     dict_groups[last_slice[0]] = last_slice[1:]
     context.user_data["dict_groups"] = dict_groups
-    print(id(dict_groups)) # разные id словарей, на 203 стр. вставил clear
     groups_list = list(dict_groups.keys())
     n = 4
     group_names = [groups_list[i * n:(i + 1) * n] for i in
@@ -197,28 +207,28 @@ def choose_sheet(update, context):
 
 
 def print_schedule(update, context):
+    """ Печатает расписание для выбранной пользователем группы """
     context.user_data["dialog"]["group"] = update.message.text
-    selected_group = \
+    schedule_of_selected_group = \
         context.user_data["dict_groups"][context.user_data["dialog"]["group"]]
-    context.user_data.clear() # нужно ли здесь очищать словарь?
-    try:
+    # context.user_data.clear() позволяет очищать словарь context.user_data
+    if len(schedule_of_selected_group) > 0:
         update.message.reply_text(
-            str(selected_group).replace(',', '\n').replace('[', '').replace(']', '').replace("'", ""),
-            reply_markup=main_keyboard()
-        )
-    except BadRequest:
-        update.message.reply_text(
-            "Удачи!", reply_markup=main_keyboard()
-        )
-        return ConversationHandler.END
+            str(schedule_of_selected_group).replace(',', '\n').replace('[', '').replace(']', '').replace("'", ""),
+            reply_markup=main_keyboard())
+    else:
+        update.message.reply_text("Удачи!", reply_markup=main_keyboard())
     return ConversationHandler.END
 
 
 def main():
     mybot = Updater(settings.API_KEY, use_context=True)
     jq = mybot.job_queue
+    # раз в заданный период и при старте бота запускаем функцию
+    # working_with_files
     jq.run_repeating(working_with_files, interval=5400, first=1)
     dp = mybot.dispatcher
+    # начало диалога с пользователем
     dialog = ConversationHandler(
         entry_points=[
             MessageHandler(Filters.regex('^([Пп]росмотреть изменения)$'),
