@@ -11,7 +11,7 @@ import settings
 from telegram import ReplyKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, ConversationHandler, \
     MessageHandler, Filters
-from telegram.error import NetworkError, Unauthorized
+from telegram.error import BadRequest, NetworkError, Unauthorized
 from urllib.request import Request, urlopen
 import urllib.request
 from urllib.parse import urlparse
@@ -186,7 +186,7 @@ def choose_sheet(update, context):
         return ConversationHandler.END
     dict_groups[last_slice[0]] = last_slice[1:]
     context.user_data["dict_groups"] = dict_groups
-    print(dict_groups)
+    print(id(dict_groups)) # разные id словарей, на 203 стр. вставил clear
     groups_list = list(dict_groups.keys())
     n = 4
     group_names = [groups_list[i * n:(i + 1) * n] for i in
@@ -198,10 +198,19 @@ def choose_sheet(update, context):
 
 def print_schedule(update, context):
     context.user_data["dialog"]["group"] = update.message.text
-    selected_group = str(
-        context.user_data["dict_groups"][context.user_data["dialog"]["group"]])\
-        .replace(',', '\n').replace('[', '').replace(']', '').replace("'", "")
-    update.message.reply_text(selected_group, reply_markup=main_keyboard())
+    selected_group = \
+        context.user_data["dict_groups"][context.user_data["dialog"]["group"]]
+    context.user_data.clear() # нужно ли здесь очищать словарь?
+    try:
+        update.message.reply_text(
+            str(selected_group).replace(',', '\n').replace('[', '').replace(']', '').replace("'", ""),
+            reply_markup=main_keyboard()
+        )
+    except BadRequest:
+        update.message.reply_text(
+            "Удачи!", reply_markup=main_keyboard()
+        )
+        return ConversationHandler.END
     return ConversationHandler.END
 
 
