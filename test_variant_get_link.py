@@ -33,10 +33,11 @@ for index, link in enumerate(links):    # кол-во итераций = кол-
 # import os
 # for file in os.listdir():
 # if os.path.isfile(file):
-# pass #обработка каждого из файлов тут
+# pass #обработка каждого из файлов здесь
 #
 # Если нужно обрабатывать определенную папку - укажите её адрес в аргументе listdir так:
 # os.listdir(path_here)
+
 
 file_list = glob.glob('*.xlsx')
 print(file_list)
