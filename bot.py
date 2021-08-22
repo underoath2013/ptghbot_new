@@ -55,10 +55,38 @@ def unsubscribe(update, context):
     update.message.reply_text('Уведомления о новом расписании отключены')
 
 
-def working_with_files(context):
+def parsing_links_from_schedule_html():
     """ Ищет по указанному URL файл с изменениями к основному
-     расписанию, сравнивает часть ссылки с именем файла в каталоге, при
+    расписанию и изменениям к основному расписанию"""
+    DATASET_URL = "https://ptgh.onego.ru/9006/"
+    url = Request(DATASET_URL)
+    html_page = urlopen(url)
+    soup = BeautifulSoup(html_page, "html.parser")
+    links = []
+    # нет селектора, поиск идет по всем тегам <a>
+    for item in soup.findAll('a'):
+        links.append(item.get('href'))
+    for index, link in enumerate(links):  # кол-во итераций = кол-ву ссылок
+        if (link.find('ismen_nov')) != -1:
+            changes_schedule = urlparse(link)
+            global NAME_OF_CHANGES_SCHEDULE_FILE
+            NAME_OF_CHANGES_SCHEDULE_FILE = changes_schedule.path.replace('/',
+                                                                          '')
+            print(NAME_OF_CHANGES_SCHEDULE_FILE)
+            continue  # переход к следующей итерации
+        if re.search(r'РАСПИСАНИЕ.*\.xlsx', link):
+            main_schedule = urlparse(link)
+            global NAME_OF_MAIN_SCHEDULE_FILE
+            NAME_OF_MAIN_SCHEDULE_FILE = main_schedule.path.replace('/', '')
+            print(NAME_OF_MAIN_SCHEDULE_FILE)
+
+
+def downloading_and_comparing_xlsx_schedules(context):
+    """ Сравнивает часть ссылки с именем файла в каталоге, при
      различии в именах, качает новый файл, удаляет старый """
+    """ Ищет по указанному URL файл с изменениями к основному
+         расписанию, сравнивает часть ссылки с именем файла в каталоге, при
+         различии в именах, качает новый файл, удаляет старый """
     print("I'm working...")
     DATASET_URL = "https://ptgh.onego.ru/9006/"
     url = Request(DATASET_URL)
@@ -225,8 +253,9 @@ def main():
     mybot = Updater(settings.API_KEY, use_context=True)
     jq = mybot.job_queue
     # раз в заданный период и при старте бота запускаем функцию
-    # working_with_files
-    jq.run_repeating(working_with_files, interval=5400, first=1)
+    # downloading_and_comparing_xlsx_schedules
+    jq.run_repeating(downloading_and_comparing_xlsx_schedules,
+                     interval=5400, first=1)
     dp = mybot.dispatcher
     # начало диалога с пользователем
     dialog = ConversationHandler(
