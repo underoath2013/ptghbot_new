@@ -57,6 +57,13 @@ def unsubscribe(update, context):
 
 
 def parsing_links_from_schedule_html(context):
+    """ Парсит страницу DATASET_URL, ищет ссылку на Изменения к основному
+     расписанию, вызывает функцию скачивания downloading_schedules, передавая
+       в нее параметры, необходимые для скачивания Изменений.
+        Ищет ссылку на Основное расписание, вызывает функцию скачивания
+        downloading_schedules, передавая в нее параметры, необходимые для
+        скачивания Основного """
+    print('*** Start parsing ***')
     DATASET_URL = "https://ptgh.onego.ru/9006/"
     url = Request(DATASET_URL)
     html_page = urlopen(url)
@@ -70,35 +77,48 @@ def parsing_links_from_schedule_html(context):
             changes_schedule_link = link
             changes_schedule = urlparse(changes_schedule_link)
             global NAME_OF_CHANGES_SCHEDULE_FILE
-            NAME_OF_CHANGES_SCHEDULE_FILE = changes_schedule.path.replace('/', '')
+            NAME_OF_CHANGES_SCHEDULE_FILE = changes_schedule.path.replace(
+                '/', '')
             print(NAME_OF_CHANGES_SCHEDULE_FILE)
-            downloading_schedules(changes_schedule_link, 'changes_schedule',
-                                  NAME_OF_CHANGES_SCHEDULE_FILE, context)
+            # передаем ссылку по которой качать, название папки,
+            # имя скачиваемого файла, context
+            downloading_schedules(
+                changes_schedule_link, 'Изменения к расписанию',
+                                  NAME_OF_CHANGES_SCHEDULE_FILE, context
+            )
             continue        # переход к следующей итерации
         if re.search(r'РАСПИСАНИЕ.*\.xlsx', link):
             main_schedule_link = link
             main_schedule = urlparse(main_schedule_link)
-            print(main_schedule)
             global NAME_OF_MAIN_SCHEDULE_FILE
             NAME_OF_MAIN_SCHEDULE_FILE = main_schedule.path.replace('/', '')
             print(NAME_OF_MAIN_SCHEDULE_FILE)
-            downloading_schedules(main_schedule_link, 'main_schedule',
-                                  NAME_OF_MAIN_SCHEDULE_FILE, context)
+            # передаем ссылку по которой качать, название папки,
+            # имя скачиваемого файла, context
+            downloading_schedules(
+                main_schedule_link, 'Основное расписание',
+                                  NAME_OF_MAIN_SCHEDULE_FILE, context
+            )
 
 
-def downloading_schedules(schedule_link, schedule_folder,
-                              name_of_schedule_file,context):
-    if len(os.listdir(schedule_folder)) == 0:
+def downloading_schedules(
+        schedule_link, schedule_folder, name_of_schedule_file, context):
+    """ Принимает ссылку по которой качать, название папки,
+     имя скачиваемого файла, context. Если папка пустая: качает
+      Измения/Основное. Еще если: имя файла в папке с именем не совпадает с
+      именем полученным при парсинге файла, качает файл и отсылает уведомления
+      подписанным на уведомления пользователям """
+    if len(os.listdir(schedule_folder)) == 0:   # listdir возвращает список
         schedule_xlsx = requests.get(schedule_link)
         f = open(schedule_folder + '/' + name_of_schedule_file, "wb")
-        f.write(schedule_xlsx.content)
+        f.write(schedule_xlsx.content)  # записывает content из get запроса
         f.close()
         print(f'Расписание скачано в {schedule_folder}')
     elif os.listdir(schedule_folder)[0] != name_of_schedule_file:
         os.remove(schedule_folder + '/' + os.listdir(schedule_folder)[0])
         schedule_xlsx = requests.get(schedule_link)
         f = open(schedule_folder + '/' + name_of_schedule_file, "wb")
-        f.write(schedule_xlsx.content)
+        f.write(schedule_xlsx.content)  # записывает content из get запроса
         f.close()
         print(f'Расписание обновлено в {schedule_folder}')
         for user in get_subsribed(db):
@@ -109,7 +129,7 @@ def downloading_schedules(schedule_link, schedule_folder,
                 print(f"Пользователь {user['chat_id']} заблокировал бота")
 
 
-def greet_user(update):
+def greet_user(update, context):
     """ Приветствует пользователя, выводит основную клавиатуру """
     user = get_or_create_user(db, update.effective_user, update.message.chat.id)
     print("Вызван /start")
@@ -134,8 +154,10 @@ def show_rings(update, context):
 
 
 def dialog_start(update, context):
-    book = openpyxl.open('changes_schedule/' + NAME_OF_CHANGES_SCHEDULE_FILE,
-                         read_only=True)
+    book = openpyxl.open(
+        'Изменения к расписанию/' + NAME_OF_CHANGES_SCHEDULE_FILE,
+        read_only=True
+    )
     my_keyboard = ReplyKeyboardMarkup([book.sheetnames], resize_keyboard=True)
     update.message.reply_text(
         "Изменения к расписанию занятий Корпус 1 (ул. Мурманская, д. 30)\n"
@@ -182,8 +204,10 @@ def choose_sheet(update, context):
     """ Парсит по именам группы расписание на выбранную пользователем дату,
     формирует словарь dict_groups и записывает его во встроенный словарь
     context.user_data, выводит списко групп пользователю """
-    book = openpyxl.open('changes_schedule/' + NAME_OF_CHANGES_SCHEDULE_FILE,
-                         read_only=True)
+    book = openpyxl.open(
+        'Изменения к расписанию/' + NAME_OF_CHANGES_SCHEDULE_FILE,
+        read_only=True
+    )
     user_text = update.message.text
     context.user_data["dialog"] = {"sheet": user_text}
     sheet = book[context.user_data["dialog"]["sheet"]]
@@ -224,7 +248,8 @@ def print_schedule(update, context):
     # context.user_data.clear() позволяет очищать словарь context.user_data
     if len(schedule_of_selected_group) > 0:
         update.message.reply_text(
-            str(schedule_of_selected_group).replace(',', '\n').replace('[', '').replace(']', '').replace("'", ""),
+            str(schedule_of_selected_group).replace(
+                ',', '\n').replace('[', '').replace(']', '').replace("'", ""),
             reply_markup=main_keyboard())
     else:
         update.message.reply_text("Удачи!", reply_markup=main_keyboard())
@@ -237,7 +262,7 @@ def main():
     # раз в заданный период и при старте бота запускаем функцию
     # downloading_and_comparing_xlsx_schedules
     jq.run_repeating(parsing_links_from_schedule_html,
-                     interval=5400, first=1)
+                     interval=60, first=1)
     dp = mybot.dispatcher
     # начало диалога с пользователем
     dialog = ConversationHandler(
