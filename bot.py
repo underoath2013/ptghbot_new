@@ -56,7 +56,7 @@ def unsubscribe(update, context):
     update.message.reply_text('Уведомления о новом расписании отключены')
 
 
-def parsing_links_from_schedule_html(context):
+def parsing_links_from_schedule_html_downloading_schedules(context):
     """ Парсит страницу DATASET_URL, ищет ссылку на Изменения к основному
      расписанию, вызывает функцию скачивания downloading_schedules, передавая
        в нее параметры, необходимые для скачивания Изменений.
@@ -153,7 +153,7 @@ def show_rings(update, context):
                            reply_markup=main_keyboard())
 
 
-def dialog_start(update, context):
+def show_dates_of_changes_schedule(update, context):
     book = openpyxl.open(
         'Изменения к расписанию/' + NAME_OF_CHANGES_SCHEDULE_FILE,
         read_only=True
@@ -200,7 +200,7 @@ def parsing_changes_xlsx(sheet):
     return schedule
 
 
-def choose_sheet(update, context):
+def choose_sheet_of_changes_schedule(update, context):
     """ Парсит по именам группы расписание на выбранную пользователем дату,
     формирует словарь dict_groups и записывает его во встроенный словарь
     context.user_data, выводит списко групп пользователю """
@@ -240,7 +240,7 @@ def choose_sheet(update, context):
     return "step_two"
 
 
-def print_schedule(update, context):
+def print_changes_schedule(update, context):
     """ Печатает расписание для выбранной пользователем группы """
     context.user_data["dialog"]["group"] = update.message.text
     schedule_of_selected_group = \
@@ -261,23 +261,23 @@ def main():
     jq = mybot.job_queue
     # раз в заданный период и при старте бота запускаем функцию
     # downloading_and_comparing_xlsx_schedules
-    jq.run_repeating(parsing_links_from_schedule_html,
+    jq.run_repeating(parsing_links_from_schedule_html_downloading_schedules,
                      interval=60, first=1)
     dp = mybot.dispatcher
     # начало диалога с пользователем
     dialog = ConversationHandler(
         entry_points=[
             MessageHandler(Filters.regex('^([Пп]росмотреть изменения)$'),
-                           dialog_start)
+                           show_dates_of_changes_schedule)
         ],
         states={
             "step_one": [MessageHandler(
                 Filters.regex('\d\d.\d\d'),
-                choose_sheet)],
+                choose_sheet_of_changes_schedule)],
             "step_two": [MessageHandler(Filters.regex(
                 '(([ЭМТВ].[0-4][0-4])|([ЭМТВ].[0-4])|([БУИП][ДС].[0-4][0-4]|'
                 '[ИБПУ][СД].[0-4])|([П][С][О].[0-4][0-4])|([ВМ][0-4]|'
-                '[У][Д][0-4]))'), print_schedule)]
+                '[У][Д][0-4]))'), print_changes_schedule)]
         },
         fallbacks=[]
     )
