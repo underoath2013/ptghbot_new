@@ -3,6 +3,7 @@ from db import db, get_or_create_user, subscribe_user, unsubscribe_user, \
     get_subsribed
 import glob
 import logging
+import requests
 import openpyxl
 import os.path
 from random import choice
@@ -13,8 +14,8 @@ from telegram.ext import Updater, CommandHandler, ConversationHandler, \
     MessageHandler, Filters
 from telegram.error import BadRequest, NetworkError, Unauthorized
 from urllib.request import Request, urlopen
-import urllib.request
 from urllib.parse import urlparse
+
 
 logging.basicConfig(
     filename="bot.log", level=logging.INFO, format=
@@ -55,9 +56,7 @@ def unsubscribe(update, context):
     update.message.reply_text('Уведомления о новом расписании отключены')
 
 
-def parsing_links_from_schedule_html():
-    """ Ищет по указанному URL файл с изменениями к основному
-    расписанию и изменениям к основному расписанию"""
+def parsing_links_from_schedule_html(context):
     DATASET_URL = "https://ptgh.onego.ru/9006/"
     url = Request(DATASET_URL)
     html_page = urlopen(url)
@@ -66,70 +65,51 @@ def parsing_links_from_schedule_html():
     # нет селектора, поиск идет по всем тегам <a>
     for item in soup.findAll('a'):
         links.append(item.get('href'))
-    for index, link in enumerate(links):  # кол-во итераций = кол-ву ссылок
+    for index, link in enumerate(links):    # кол-во итераций = кол-ву ссылок
         if (link.find('ismen_nov')) != -1:
-            changes_schedule = urlparse(link)
+            changes_schedule_link = link
+            changes_schedule = urlparse(changes_schedule_link)
             global NAME_OF_CHANGES_SCHEDULE_FILE
-            NAME_OF_CHANGES_SCHEDULE_FILE = changes_schedule.path.replace('/',
-                                                                          '')
+            NAME_OF_CHANGES_SCHEDULE_FILE = changes_schedule.path.replace('/', '')
             print(NAME_OF_CHANGES_SCHEDULE_FILE)
-            continue  # переход к следующей итерации
+            downloading_schedules(changes_schedule_link, 'changes_schedule',
+                                  NAME_OF_CHANGES_SCHEDULE_FILE, context)
+            continue        # переход к следующей итерации
         if re.search(r'РАСПИСАНИЕ.*\.xlsx', link):
-            main_schedule = urlparse(link)
+            main_schedule_link = link
+            main_schedule = urlparse(main_schedule_link)
+            print(main_schedule)
             global NAME_OF_MAIN_SCHEDULE_FILE
             NAME_OF_MAIN_SCHEDULE_FILE = main_schedule.path.replace('/', '')
             print(NAME_OF_MAIN_SCHEDULE_FILE)
+            downloading_schedules(main_schedule_link, 'main_schedule',
+                                  NAME_OF_MAIN_SCHEDULE_FILE, context)
 
 
-def downloading_and_comparing_xlsx_schedules(context):
-    """ Сравнивает часть ссылки с именем файла в каталоге, при
-     различии в именах, качает новый файл, удаляет старый """
-    """ Ищет по указанному URL файл с изменениями к основному
-         расписанию, сравнивает часть ссылки с именем файла в каталоге, при
-         различии в именах, качает новый файл, удаляет старый """
-    print("I'm working...")
-    DATASET_URL = "https://ptgh.onego.ru/9006/"
-    url = Request(DATASET_URL)
-    html_page = urlopen(url)
-    soup = BeautifulSoup(html_page, "html.parser")
-    link = []
-    for item in soup.findAll('a'):
-        link.append(item.get('href'))
-    for index, elem in enumerate(link):
-        if (elem.find('ismen_nov')) != -1:
-            new_elem = urlparse(elem)
-            global new_elem_replace
-            new_elem_replace = new_elem[2].replace('/', '')
-            print(new_elem_replace)
-            break
-    file_list = glob.glob('*.xlsx')
-    print(file_list)
-    if not file_list:
-        print('excel файлов нет')
-    else:
-        if file_list[0] == new_elem_replace:
-            print('нового расписания нет')
-            pass
-        else:
-            file_xlsx = urllib.request.urlopen(elem).read()
-            f = open(new_elem_replace, "wb")
-            f.write(file_xlsx)
-            f.close()
-            print('Расписание обновлено')
-            file_list = glob.glob('*.xlsx')
-            for item in file_list:
-                print(item)
-            if item != new_elem_replace:
-                os.remove(item)
-            for user in get_subsribed(db):
-                try:
-                    context.bot.send_message(chat_id=user['chat_id'],
-                                             text='Расписание обновлено')
-                except Unauthorized:
-                    print(f"Пользователь заблокировал бота {user['chat_id']}")
+def downloading_schedules(schedule_link, schedule_folder,
+                              name_of_schedule_file,context):
+    if len(os.listdir(schedule_folder)) == 0:
+        schedule_xlsx = requests.get(schedule_link)
+        f = open(schedule_folder + '/' + name_of_schedule_file, "wb")
+        f.write(schedule_xlsx.content)
+        f.close()
+        print(f'Расписание скачано в {schedule_folder}')
+    elif os.listdir(schedule_folder)[0] != name_of_schedule_file:
+        os.remove(schedule_folder + '/' + os.listdir(schedule_folder)[0])
+        schedule_xlsx = requests.get(schedule_link)
+        f = open(schedule_folder + '/' + name_of_schedule_file, "wb")
+        f.write(schedule_xlsx.content)
+        f.close()
+        print(f'Расписание обновлено в {schedule_folder}')
+        for user in get_subsribed(db):
+            try:
+                context.bot.send_message(chat_id=user['chat_id'],
+                                         text=f'{schedule_folder} обновлено')
+            except Unauthorized:
+                print(f"Пользователь {user['chat_id']} заблокировал бота")
 
 
-def greet_user(update, context):
+def greet_user(update):
     """ Приветствует пользователя, выводит основную клавиатуру """
     user = get_or_create_user(db, update.effective_user, update.message.chat.id)
     print("Вызван /start")
@@ -154,7 +134,8 @@ def show_rings(update, context):
 
 
 def dialog_start(update, context):
-    book = openpyxl.open(new_elem_replace, read_only=True)
+    book = openpyxl.open('changes_schedule/' + NAME_OF_CHANGES_SCHEDULE_FILE,
+                         read_only=True)
     my_keyboard = ReplyKeyboardMarkup([book.sheetnames], resize_keyboard=True)
     update.message.reply_text(
         "Изменения к расписанию занятий Корпус 1 (ул. Мурманская, д. 30)\n"
@@ -201,7 +182,8 @@ def choose_sheet(update, context):
     """ Парсит по именам группы расписание на выбранную пользователем дату,
     формирует словарь dict_groups и записывает его во встроенный словарь
     context.user_data, выводит списко групп пользователю """
-    book = openpyxl.open(new_elem_replace, read_only=True)
+    book = openpyxl.open('changes_schedule/' + NAME_OF_CHANGES_SCHEDULE_FILE,
+                         read_only=True)
     user_text = update.message.text
     context.user_data["dialog"] = {"sheet": user_text}
     sheet = book[context.user_data["dialog"]["sheet"]]
@@ -254,7 +236,7 @@ def main():
     jq = mybot.job_queue
     # раз в заданный период и при старте бота запускаем функцию
     # downloading_and_comparing_xlsx_schedules
-    jq.run_repeating(downloading_and_comparing_xlsx_schedules,
+    jq.run_repeating(parsing_links_from_schedule_html,
                      interval=5400, first=1)
     dp = mybot.dispatcher
     # начало диалога с пользователем
