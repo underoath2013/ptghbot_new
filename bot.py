@@ -243,10 +243,10 @@ def choose_sheet_of_changes_schedule(update, context):
     context.user_data["dict_groups"] = dict_groups
     groups_list = list(dict_groups.keys())
     n = 4
-    group_names = [groups_list[i * n:(i + 1) * n] for i in
-                   range((len(groups_list) + n - 1) // n)]
+    groups_names = [groups_list[i * n:(i + 1) * n] for i in range((len(groups_list) + n - 1) // n)]
+    groups_names.append(['Отмена'])
     my_keyboard = ReplyKeyboardMarkup(
-        [group_names,['Отмена']], resize_keyboard=True)
+        groups_names, resize_keyboard=True)
     update.message.reply_text("Выберите группу:", reply_markup=my_keyboard)
     return "step_two"
 
