@@ -23,7 +23,7 @@ logging.basicConfig(
 )
 
 
-def bot_commands(update, context):
+def bot_commands(update, _):
     """ Доступные команды для работы с ботом """
     update.message.reply_text("/start - старт бота\n/subscribe - "
                               "получать уведомление о новом расписании\n"
@@ -40,7 +40,16 @@ def main_keyboard():
     )
 
 
-def subscribe(update, context):
+def show_dontunderstand(update, _):
+    update.message.reply_text("Я вас не понял, лучше нажмите кнопку")
+
+
+def cancel_dialog(update, _):
+    update.message.reply_text('Жаль', reply_markup=main_keyboard())
+    return ConversationHandler.END
+
+
+def subscribe(update, _):
     """ При вызове этой функции пользователь подписывается на рассылку
     уведомлений """
     user = get_or_create_user(db, update.effective_user, update.message.chat.id)
@@ -48,7 +57,7 @@ def subscribe(update, context):
     update.message.reply_text('Уведомления о новом расписании подключены')
 
 
-def unsubscribe(update, context):
+def unsubscribe(update, _):
     """ При вызове этой функции пользователь отписывается от рассылки
         уведомлений """
     user = get_or_create_user(db, update.effective_user, update.message.chat.id)
@@ -129,7 +138,7 @@ def downloading_schedules(
                 print(f"Пользователь {user['chat_id']} заблокировал бота")
 
 
-def greet_user(update, context):
+def greet_user(update, _):
     """ Приветствует пользователя, выводит основную клавиатуру """
     user = get_or_create_user(db, update.effective_user, update.message.chat.id)
     print("Вызван /start")
@@ -153,12 +162,13 @@ def show_rings(update, context):
                            reply_markup=main_keyboard())
 
 
-def show_dates_of_changes_schedule(update, context):
+def show_dates_of_changes_schedule(update, _):
     book = openpyxl.open(
         'Изменения к расписанию/' + NAME_OF_CHANGES_SCHEDULE_FILE,
         read_only=True
     )
-    my_keyboard = ReplyKeyboardMarkup([book.sheetnames], resize_keyboard=True)
+    my_keyboard = ReplyKeyboardMarkup(
+        [book.sheetnames, ['Отмена']], resize_keyboard=True)
     update.message.reply_text(
         "Изменения к расписанию занятий Корпус 1 (ул. Мурманская, д. 30)\n"
         "выберите дату:",
@@ -235,7 +245,8 @@ def choose_sheet_of_changes_schedule(update, context):
     n = 4
     group_names = [groups_list[i * n:(i + 1) * n] for i in
                    range((len(groups_list) + n - 1) // n)]
-    my_keyboard = ReplyKeyboardMarkup(group_names, resize_keyboard=True)
+    my_keyboard = ReplyKeyboardMarkup(
+        [group_names,['Отмена']], resize_keyboard=True)
     update.message.reply_text("Выберите группу:", reply_markup=my_keyboard)
     return "step_two"
 
@@ -271,15 +282,21 @@ def main():
                            show_dates_of_changes_schedule)
         ],
         states={
-            "step_one": [MessageHandler(
+            "step_one": [
+                MessageHandler(
                 Filters.regex('\d\d.\d\d'),
                 choose_sheet_of_changes_schedule)],
-            "step_two": [MessageHandler(Filters.regex(
+            "step_two": [
+                MessageHandler(Filters.regex(
                 '(([ЭМТВ].[0-4][0-4])|([ЭМТВ].[0-4])|([БУИП][ДС].[0-4][0-4]|'
                 '[ИБПУ][СД].[0-4])|([П][С][О].[0-4][0-4])|([ВМ][0-4]|'
                 '[У][Д][0-4]))'), print_changes_schedule)]
         },
-        fallbacks=[]
+        fallbacks=[
+            MessageHandler(Filters.regex('^([Оо]тмена)$'), cancel_dialog),
+            MessageHandler(
+            Filters.text | Filters.video | Filters.photo | Filters.document
+          | Filters.location, show_dontunderstand)]
     )
     dp.add_handler(dialog)
     dp.add_handler(CommandHandler('subscribe', subscribe))
