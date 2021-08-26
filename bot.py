@@ -16,7 +16,6 @@ from telegram.error import BadRequest, NetworkError, Unauthorized
 from urllib.request import Request, urlopen
 from urllib.parse import urlparse
 
-
 logging.basicConfig(
     filename="bot.log", level=logging.INFO, format=
     '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
@@ -84,11 +83,12 @@ def parsing_links_from_schedule_html_downloading_schedules(context):
     for index, link in enumerate(links):    # кол-во итераций = кол-ву ссылок
         if (link.find('ismen_nov')) != -1:
             changes_schedule_link = link
+            print(type(changes_schedule_link))
             changes_schedule = urlparse(changes_schedule_link)
             global NAME_OF_CHANGES_SCHEDULE_FILE
             NAME_OF_CHANGES_SCHEDULE_FILE = changes_schedule.path.replace(
                 '/', '')
-            print(NAME_OF_CHANGES_SCHEDULE_FILE)
+            print(type(NAME_OF_CHANGES_SCHEDULE_FILE))
             # передаем ссылку по которой качать, название папки,
             # имя скачиваемого файла, context
             downloading_schedules(
@@ -112,11 +112,17 @@ def parsing_links_from_schedule_html_downloading_schedules(context):
 
 def downloading_schedules(
         schedule_link, schedule_folder, name_of_schedule_file, context):
-    """ Принимает ссылку по которой качать, название папки,
+    """ Принимает , название папки,
      имя скачиваемого файла, context. Если папка пустая: качает
       Измения/Основное. Еще если: имя файла в папке с именем не совпадает с
-      именем полученным при парсинге файла, качает файл и отсылает уведомления
-      подписанным на уведомления пользователям """
+      именем, полученным при парсинге файла, качает файл и отсылает уведомления
+      подписанным на уведомления пользователям
+       Параметры:
+       schedule_link (str): ссылка для скачивания файла
+       schedule_folder (str): директория в которой находится файл
+       name_of_schedule_file (str): названия файла с расписанием
+       context: втроенный класс библиотеки python telegram bot
+        здесь используется для отправки сообщения пользователю """
     if len(os.listdir(schedule_folder)) == 0:   # listdir возвращает список
         schedule_xlsx = requests.get(schedule_link)
         f = open(schedule_folder + '/' + name_of_schedule_file, "wb")
@@ -163,11 +169,13 @@ def show_rings(update, context):
 
 
 def show_dates_of_changes_schedule(update, _):
+    """ Выводит список дат, доступных для выбора """
     book = openpyxl.open(
         'Изменения к расписанию/' + NAME_OF_CHANGES_SCHEDULE_FILE,
         read_only=True
     )
     my_keyboard = ReplyKeyboardMarkup(
+        # выводим кнопки с датами и кнопку отмена
         [book.sheetnames, ['Отмена']], resize_keyboard=True)
     update.message.reply_text(
         "Изменения к расписанию занятий Корпус 1 (ул. Мурманская, д. 30)\n"
@@ -243,7 +251,9 @@ def choose_sheet_of_changes_schedule(update, context):
     context.user_data["dict_groups"] = dict_groups
     groups_list = list(dict_groups.keys())
     n = 4
-    groups_names = [groups_list[i * n:(i + 1) * n] for i in range((len(groups_list) + n - 1) // n)]
+    groups_names = [groups_list[i * n:(i + 1) * n] for i in range(
+        (len(groups_list) + n - 1) // n)]
+    # добавляем кнопку отмена к кнопкам с названием групп
     groups_names.append(['Отмена'])
     my_keyboard = ReplyKeyboardMarkup(
         groups_names, resize_keyboard=True)
@@ -293,8 +303,11 @@ def main():
                 '[У][Д][0-4]))'), print_changes_schedule)]
         },
         fallbacks=[
+            # при нажатии кнопки отмена выходим из диалога
             MessageHandler(Filters.regex('^([Оо]тмена)$'), cancel_dialog),
             MessageHandler(
+                # фильтры не дают пользователю ввести лишний текст, прислать
+                # фото, видео, геолокацию
             Filters.text | Filters.video | Filters.photo | Filters.document
           | Filters.location, show_dontunderstand)]
     )
