@@ -64,6 +64,15 @@ def unsubscribe(update, _):
     update.message.reply_text('Уведомления о новом расписании отключены')
 
 
+def sending_notify_about_updating_schedules(schedule_folder, context):
+    for user in get_subsribed(db):
+        try:
+            context.bot.send_message(chat_id=user['chat_id'],
+                                     text=f'{schedule_folder} обновлено')
+        except Unauthorized:
+            print(f"Пользователь {user['chat_id']} заблокировал бота")
+
+
 def parsing_links_from_schedule_html_downloading_schedules(context):
     """ Парсит страницу DATASET_URL, ищет ссылку на Изменения к основному
      расписанию, вызывает функцию скачивания downloading_schedules, передавая
@@ -83,18 +92,19 @@ def parsing_links_from_schedule_html_downloading_schedules(context):
     for index, link in enumerate(links):    # кол-во итераций = кол-ву ссылок
         if (link.find('ismen_nov')) != -1:
             changes_schedule_link = link
-            print(type(changes_schedule_link))
             changes_schedule = urlparse(changes_schedule_link)
             global NAME_OF_CHANGES_SCHEDULE_FILE
             NAME_OF_CHANGES_SCHEDULE_FILE = changes_schedule.path.replace(
                 '/', '')
-            print(type(NAME_OF_CHANGES_SCHEDULE_FILE))
+            print(NAME_OF_CHANGES_SCHEDULE_FILE)
             # передаем ссылку по которой качать, название папки,
             # имя скачиваемого файла, context
             downloading_schedules(
                 changes_schedule_link, 'Изменения к расписанию',
                                   NAME_OF_CHANGES_SCHEDULE_FILE, context
             )
+            sending_notify_about_updating_schedules(
+                'Изменения к расписанию', context)
             continue        # переход к следующей итерации
         if re.search(r'РАСПИСАНИЕ.*\.xlsx', link):
             main_schedule_link = link
@@ -108,6 +118,8 @@ def parsing_links_from_schedule_html_downloading_schedules(context):
                 main_schedule_link, 'Основное расписание',
                                   NAME_OF_MAIN_SCHEDULE_FILE, context
             )
+            sending_notify_about_updating_schedules(
+                'Основное расписание', context)
 
 
 def downloading_schedules(
@@ -136,12 +148,6 @@ def downloading_schedules(
         f.write(schedule_xlsx.content)  # записывает content из get запроса
         f.close()
         print(f'Расписание обновлено в {schedule_folder}')
-        for user in get_subsribed(db):
-            try:
-                context.bot.send_message(chat_id=user['chat_id'],
-                                         text=f'{schedule_folder} обновлено')
-            except Unauthorized:
-                print(f"Пользователь {user['chat_id']} заблокировал бота")
 
 
 def greet_user(update, _):
@@ -166,6 +172,26 @@ def show_rings(update, context):
     context.bot.send_photo(chat_id=user['chat_id'],
                            photo=open(rings_pic_filename, 'rb'),
                            reply_markup=main_keyboard())
+
+
+def send_main_schedule(update, context):
+    parsing_links_from_schedule_html_downloading_schedules(context)
+    user = get_or_create_user(db, update.effective_user, update.message.chat.id)
+    context.bot.send_document(
+        chat_id=user['chat_id'], document=open(
+            'Основное расписание/' + NAME_OF_MAIN_SCHEDULE_FILE, 'rb'),
+        reply_markup=main_keyboard()
+    )
+
+
+def send_changes_schedule(update, context):
+    parsing_links_from_schedule_html_downloading_schedules(context)
+    user = get_or_create_user(db, update.effective_user, update.message.chat.id)
+    context.bot.send_document(
+        chat_id=user['chat_id'], document=open(
+            'Изменения к расписанию/' + NAME_OF_CHANGES_SCHEDULE_FILE, 'rb'),
+        reply_markup=main_keyboard()
+    )
 
 
 def show_dates_of_changes_schedule(update, _):
@@ -317,6 +343,10 @@ def main():
     dp.add_handler(CommandHandler('show_rings', show_rings))
     dp.add_handler(CommandHandler("start", greet_user))
     dp.add_handler(MessageHandler(Filters.regex('^([Зз]вонки)$'), show_rings))
+    dp.add_handler(MessageHandler(Filters.regex('^([Сс]качать основное)$'),
+                                  send_main_schedule))
+    dp.add_handler(MessageHandler(Filters.regex('^([Сс]качать изменения)$'),
+                                  send_changes_schedule))
     dp.add_handler(
         MessageHandler(Filters.regex('^([Кк]оманды бота)$'), bot_commands))
     logging.info("bot started")
