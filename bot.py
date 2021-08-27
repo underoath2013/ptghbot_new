@@ -3,11 +3,13 @@ from db import db, get_or_create_user, subscribe_user, unsubscribe_user, \
     get_subsribed
 import glob
 import logging
-import requests
+
 import openpyxl
 import os.path
+import parsing_changes_xlsx
 from random import choice
 import re
+import requests
 import settings
 from telegram import ReplyKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, ConversationHandler, \
@@ -16,10 +18,11 @@ from telegram.error import BadRequest, NetworkError, Unauthorized
 from urllib.request import Request, urlopen
 from urllib.parse import urlparse
 
+
 logging.basicConfig(
     filename="bot.log", level=logging.INFO, format=
     '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+    )
 
 
 def bot_commands(update, _):
@@ -76,10 +79,10 @@ def sending_notify_about_updating_schedules(schedule_folder, context):
 def parsing_links_from_schedule_html_downloading_schedules(context):
     """ Парсит страницу DATASET_URL, ищет ссылку на Изменения к основному
      расписанию, вызывает функцию скачивания downloading_schedules, передавая
-       в нее параметры, необходимые для скачивания Изменений.
-        Ищет ссылку на Основное расписание, вызывает функцию скачивания
-        downloading_schedules, передавая в нее параметры, необходимые для
-        скачивания Основного """
+     в нее параметры, необходимые для скачивания Изменений.
+     Ищет ссылку на Основное расписание, вызывает функцию скачивания
+     downloading_schedules, передавая в нее параметры, необходимые для
+     скачивания Основного """
     print('*** Start parsing ***')
     DATASET_URL = "https://ptgh.onego.ru/9006/"
     url = Request(DATASET_URL)
@@ -101,7 +104,7 @@ def parsing_links_from_schedule_html_downloading_schedules(context):
             # имя скачиваемого файла, context
             downloading_schedules(
                 changes_schedule_link, 'Изменения к расписанию',
-                                  NAME_OF_CHANGES_SCHEDULE_FILE, context
+                                  NAME_OF_CHANGES_SCHEDULE_FILE
             )
             sending_notify_about_updating_schedules(
                 'Изменения к расписанию', context)
@@ -116,25 +119,23 @@ def parsing_links_from_schedule_html_downloading_schedules(context):
             # имя скачиваемого файла, context
             downloading_schedules(
                 main_schedule_link, 'Основное расписание',
-                                  NAME_OF_MAIN_SCHEDULE_FILE, context
+                                  NAME_OF_MAIN_SCHEDULE_FILE
             )
             sending_notify_about_updating_schedules(
                 'Основное расписание', context)
 
 
 def downloading_schedules(
-        schedule_link, schedule_folder, name_of_schedule_file, context):
-    """ Принимает , название папки,
-     имя скачиваемого файла, context. Если папка пустая: качает
-      Измения/Основное. Еще если: имя файла в папке с именем не совпадает с
-      именем, полученным при парсинге файла, качает файл и отсылает уведомления
-      подписанным на уведомления пользователям
-       Параметры:
-       schedule_link (str): ссылка для скачивания файла
-       schedule_folder (str): директория в которой находится файл
-       name_of_schedule_file (str): названия файла с расписанием
-       context: втроенный класс библиотеки python telegram bot
-        здесь используется для отправки сообщения пользователю """
+        schedule_link, schedule_folder, name_of_schedule_file):
+    """ Скачивает Изменения и Основное расписание
+    :param schedule_link: ссылка для скачивания файла
+    :type schedule_link: str
+    :param schedule_folder: директория в которой находится файл
+    :type schedule_folder: str
+    :param name_of_schedule_file: имя файла с расписанием
+    :type name_of_schedule_file:
+    """
+    #status
     if len(os.listdir(schedule_folder)) == 0:   # listdir возвращает список
         schedule_xlsx = requests.get(schedule_link)
         f = open(schedule_folder + '/' + name_of_schedule_file, "wb")
@@ -210,40 +211,6 @@ def show_dates_of_changes_schedule(update, _):
     return "step_one"
 
 
-def parsing_changes_xlsx(sheet):
-    """  Обрабатывает excel файл с изменениями к расписанию """
-    schedule = []
-    for row in range(1, sheet.max_row):
-        a_column = sheet[row][0].value
-        if a_column is None:
-            a_column = ''
-        c_column = sheet[row][2].value
-        if c_column is None or c_column == 'ауд.':
-            c_column = ''
-        b_column = sheet[row][1].value
-        if b_column is None:
-            continue
-        else:
-            b_column_split = ' '.join(b_column.split())
-            result_abc = str(a_column) + str(b_column_split) + str(c_column)
-            schedule.append(result_abc)
-    for row in range(1, sheet.max_row):
-        e_column = sheet[row][4].value
-        if e_column is None:
-            e_column = ''
-        g_column = sheet[row][6].value
-        if g_column is None or g_column == 'ауд.':
-            g_column = ''
-        f_column = sheet[row][5].value
-        if f_column is None:
-            continue
-        else:
-            f_column_split = ' '.join(f_column.split())
-            result_efg = str(e_column) + str(f_column_split) + str(g_column)
-            schedule.append(result_efg)
-    return schedule
-
-
 def choose_sheet_of_changes_schedule(update, context):
     """ Парсит по именам группы расписание на выбранную пользователем дату,
     формирует словарь dict_groups и записывает его во встроенный словарь
@@ -255,7 +222,7 @@ def choose_sheet_of_changes_schedule(update, context):
     user_text = update.message.text
     context.user_data["dialog"] = {"sheet": user_text}
     sheet = book[context.user_data["dialog"]["sheet"]]
-    parsed_schedule = parsing_changes_xlsx(sheet)
+    parsed_schedule = parsing_changes_xlsx.parsing_changes_xlsx(sheet)
     groups = re.compile(
         r'(БД 12)|(БД 22)|(ИС 11)|(ИС 21)|(ИС 31)|(В 01)|(В 21)|(М 01)|(ПД 12)|'
         r'(ПД 13)|(ПД 22)|(ПД 23)|(ПД 24)|(ПД 32)|(ПД 33)|(ПД 34)|(ПСО 11)|'
