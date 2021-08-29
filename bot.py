@@ -6,7 +6,7 @@ import logging
 
 import openpyxl
 import os.path
-import parsing_changes_xlsx
+import system_functions
 from random import choice
 import re
 import requests
@@ -117,12 +117,13 @@ def parsing_links_from_schedule_html_downloading_schedules(context):
             print(NAME_OF_MAIN_SCHEDULE_FILE)
             # передаем ссылку по которой качать, название папки,
             # имя скачиваемого файла, context
-            downloading_schedules(
-                main_schedule_link, 'Основное расписание',
-                                  NAME_OF_MAIN_SCHEDULE_FILE
-            )
-            sending_notify_about_updating_schedules(
-                'Основное расписание', context)
+            if downloading_schedules(
+                    main_schedule_link, 'Основное расписание',
+                    NAME_OF_MAIN_SCHEDULE_FILE) is None:
+                break
+            else:
+                sending_notify_about_updating_schedules(
+                    'Основное расписание', context)
 
 
 def downloading_schedules(
@@ -135,7 +136,6 @@ def downloading_schedules(
     :param name_of_schedule_file: имя файла с расписанием
     :type name_of_schedule_file:
     """
-    #status
     if len(os.listdir(schedule_folder)) == 0:   # listdir возвращает список
         schedule_xlsx = requests.get(schedule_link)
         f = open(schedule_folder + '/' + name_of_schedule_file, "wb")
@@ -149,6 +149,8 @@ def downloading_schedules(
         f.write(schedule_xlsx.content)  # записывает content из get запроса
         f.close()
         print(f'Расписание обновлено в {schedule_folder}')
+    else:
+        return None
 
 
 def greet_user(update, _):
@@ -176,7 +178,7 @@ def show_rings(update, context):
 
 
 def send_main_schedule(update, context):
-    parsing_links_from_schedule_html_downloading_schedules(context)
+    #parsing_links_from_schedule_html_downloading_schedules(context)
     user = get_or_create_user(db, update.effective_user, update.message.chat.id)
     context.bot.send_document(
         chat_id=user['chat_id'], document=open(
@@ -222,7 +224,7 @@ def choose_sheet_of_changes_schedule(update, context):
     user_text = update.message.text
     context.user_data["dialog"] = {"sheet": user_text}
     sheet = book[context.user_data["dialog"]["sheet"]]
-    parsed_schedule = parsing_changes_xlsx.parsing_changes_xlsx(sheet)
+    parsed_schedule = system_functions.parsing_changes_xlsx(sheet)
     groups = re.compile(
         r'(БД 12)|(БД 22)|(ИС 11)|(ИС 21)|(ИС 31)|(В 01)|(В 21)|(М 01)|(ПД 12)|'
         r'(ПД 13)|(ПД 22)|(ПД 23)|(ПД 24)|(ПД 32)|(ПД 33)|(ПД 34)|(ПСО 11)|'
