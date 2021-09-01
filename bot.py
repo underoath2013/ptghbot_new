@@ -1,3 +1,5 @@
+from urllib.error import URLError
+
 from bs4 import BeautifulSoup
 from db import db, get_or_create_user, subscribe_user, unsubscribe_user, \
     get_subsribed
@@ -120,41 +122,45 @@ def parsing_links_from_schedule_html_downloading_schedules(context, user=False):
     NAME_OF_MAIN_SCHEDULE_FILE = ''
     DATASET_URL = "https://ptgh.onego.ru/9006/"
     url = Request(DATASET_URL)
-    html_page = urlopen(url)
-    soup = BeautifulSoup(html_page, "html.parser")
-    links = []
-    # нет селектора, поиск идет по всем тегам <a>
-    for item in soup.findAll('a'):
-        links.append(item.get('href'))
-    for index, link in enumerate(links):    # кол-во итераций = кол-ву ссылок
-        if (link.find('ismen_nov')) != -1:
-            changes_schedule_link = link
-            changes_schedule = urlparse(changes_schedule_link)
-            NAME_OF_CHANGES_SCHEDULE_FILE = changes_schedule.path.replace(
-                '/', '')
-            print(NAME_OF_CHANGES_SCHEDULE_FILE)
-            # передаем ссылку по которой качать, название папки,
-            # имя скачиваемого файла, context
-            download_result = downloading_schedules(
-                changes_schedule_link, 'Изменения к расписанию',
-                                  NAME_OF_CHANGES_SCHEDULE_FILE)
-            if download_result is True and user is False:
-                sending_notify_about_updating_schedules(
-                    'Изменения к расписанию', context)
-            continue        # переход к следующей итерации
-        if re.search(r'РАСПИСАНИЕ.*\.xlsx', link):
-            main_schedule_link = link
-            main_schedule = urlparse(main_schedule_link)
-            NAME_OF_MAIN_SCHEDULE_FILE = main_schedule.path.replace('/', '')
-            print(NAME_OF_MAIN_SCHEDULE_FILE)
-            # передаем ссылку по которой качать, название папки,
-            # имя скачиваемого файла, context
-            download_result = downloading_schedules(
-                    main_schedule_link, 'Основное расписание',
-                    NAME_OF_MAIN_SCHEDULE_FILE)
-            if download_result is True and user is False:
-                sending_notify_about_updating_schedules(
-                  'Основное расписание', context)
+    try:
+        html_page = urlopen(url)
+    except URLError:
+        print('Сайт недоступен')
+    else:
+        soup = BeautifulSoup(html_page, "html.parser")
+        links = []
+        # нет селектора, поиск идет по всем тегам <a>
+        for item in soup.findAll('a'):
+            links.append(item.get('href'))
+        for index, link in enumerate(links):    # кол-во итераций = кол-ву ссылок
+            if (link.find('ismen_nov')) != -1:
+                changes_schedule_link = link
+                changes_schedule = urlparse(changes_schedule_link)
+                NAME_OF_CHANGES_SCHEDULE_FILE = changes_schedule.path.replace(
+                    '/', '')
+                print(NAME_OF_CHANGES_SCHEDULE_FILE)
+                # передаем ссылку по которой качать, название папки,
+                # имя скачиваемого файла, context
+                download_result = downloading_schedules(
+                    changes_schedule_link, 'changes_schedule',
+                                      NAME_OF_CHANGES_SCHEDULE_FILE)
+                if download_result is True and user is False:
+                    sending_notify_about_updating_schedules(
+                        'changes_schedule', context)
+                continue        # переход к следующей итерации
+            if re.search(r'РАСПИСАНИЕ.*\.xlsx', link):
+                main_schedule_link = link
+                main_schedule = urlparse(main_schedule_link)
+                NAME_OF_MAIN_SCHEDULE_FILE = main_schedule.path.replace('/', '')
+                print(NAME_OF_MAIN_SCHEDULE_FILE)
+                # передаем ссылку по которой качать, название папки,
+                # имя скачиваемого файла, context
+                download_result = downloading_schedules(
+                        main_schedule_link, 'main_schedule',
+                        NAME_OF_MAIN_SCHEDULE_FILE)
+                if download_result is True and user is False:
+                    sending_notify_about_updating_schedules(
+                      'main_schedule', context)
 
 
 def downloading_schedules(
@@ -189,18 +195,19 @@ def send_main_schedule(update, context):
     parsing_links_from_schedule_html_downloading_schedules(context, user=True)
     user = get_or_create_user(db, update.effective_user, update.message.chat.id)
     if NAME_OF_MAIN_SCHEDULE_FILE == '':
-        update.message.reply_text('Основное расписание не найдено на сайте, '
-                                  'но у меня есть старая версия,'
-                                  ' используй внимательно')
+        update.message.reply_text('Сайт недоступен или основное расписание '
+                                  'не найдено на сайте, '
+                                  'но у меня есть старая версия, '
+                                  'используй внимательно')
         context.bot.send_document(
             chat_id=user['chat_id'], document=open(
-                'Основное расписание/' + os.listdir('Основное расписание')[0],
+                'main_schedule/' + os.listdir('main_schedule')[0],
                 'rb'),
             reply_markup=main_keyboard())
     else:
         context.bot.send_document(
             chat_id=user['chat_id'], document=open(
-                'Основное расписание/' + NAME_OF_MAIN_SCHEDULE_FILE, 'rb'),
+                'main_schedule/' + NAME_OF_MAIN_SCHEDULE_FILE, 'rb'),
             reply_markup=main_keyboard()
         )
 
@@ -209,18 +216,19 @@ def send_changes_schedule(update, context):
     parsing_links_from_schedule_html_downloading_schedules(context, user=True)
     user = get_or_create_user(db, update.effective_user, update.message.chat.id)
     if NAME_OF_CHANGES_SCHEDULE_FILE == '':
-        update.message.reply_text('Изменений расписания не найдено на сайте, '
-                                  'но у меня есть старая версия,'
-                                  ' используй внимательно')
+        update.message.reply_text('Сайт недоступен или изменений расписания '
+                                  'не найдено на сайте, '
+                                  'но у меня есть старая версия, '
+                                  'используй внимательно')
         context.bot.send_document(
             chat_id=user['chat_id'], document=open(
-                'Изменения к расписанию/' + os.listdir(
-                    'Изменения к расписанию')[0], 'rb'),
+                'changes_schedule/' + os.listdir(
+                    'changes_schedule')[0], 'rb'),
             reply_markup=main_keyboard())
     else:
         context.bot.send_document(
             chat_id=user['chat_id'], document=open(
-                'Изменения к расписанию/' + NAME_OF_CHANGES_SCHEDULE_FILE,
+                'changes_schedule/' + NAME_OF_CHANGES_SCHEDULE_FILE,
                 'rb'), reply_markup=main_keyboard())
 
 
@@ -230,7 +238,7 @@ def show_dates_of_changes_schedule(update, _):
         update.message.reply_text('Изменений расписания не найдено на сайте')
     else:
         book = openpyxl.open(
-        'Изменения к расписанию/' + NAME_OF_CHANGES_SCHEDULE_FILE,
+        'changes_schedule/' + NAME_OF_CHANGES_SCHEDULE_FILE,
         read_only=True
         )
         my_keyboard = ReplyKeyboardMarkup(
@@ -248,7 +256,7 @@ def choose_sheet_of_changes_schedule(update, context):
     формирует словарь dict_groups и записывает его во встроенный словарь
     context.user_data, выводит списко групп пользователю """
     book = openpyxl.open(
-        'Изменения к расписанию/' + NAME_OF_CHANGES_SCHEDULE_FILE,
+        'changes_schedule/' + NAME_OF_CHANGES_SCHEDULE_FILE,
         read_only=True
     )
     user_text = update.message.text
