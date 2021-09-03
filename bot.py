@@ -121,13 +121,15 @@ def parsing_links_from_schedule_html_downloading_schedules(context, user=False):
     global NAME_OF_MAIN_SCHEDULE_FILE
     NAME_OF_MAIN_SCHEDULE_FILE = ''
     DATASET_URL = "https://ptgh.onego.ru/9006/"
-    url = Request(DATASET_URL)
-    try:
-        html_page = urlopen(url)
-    except URLError:
+    headers = {
+        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:91.0)'
+                      ' Gecko/20100101 Firefox/91.0'
+    }
+    html_page = requests.get(DATASET_URL, headers=headers, timeout=10)
+    if html_page.status_code != 200:
         print('Сайт недоступен')
     else:
-        soup = BeautifulSoup(html_page, "html.parser")
+        soup = BeautifulSoup(html_page.text, "html.parser")
         links = []
         # нет селектора, поиск идет по всем тегам <a>
         for item in soup.findAll('a'):
@@ -320,7 +322,7 @@ def main():
     # раз в заданный период и при старте бота запускаем функцию
     # downloading_and_comparing_xlsx_schedules
     jq.run_repeating(parsing_links_from_schedule_html_downloading_schedules,
-                     interval=60, first=1)
+                     interval=7200, first=1)
     dp = mybot.dispatcher
     # начало диалога с пользователем
     dialog = ConversationHandler(
