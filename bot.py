@@ -12,6 +12,7 @@ import system_functions
 from random import choice
 import re
 import requests
+from requests import RequestException
 import settings
 from telegram import ReplyKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, ConversationHandler, \
@@ -125,8 +126,9 @@ def parsing_links_from_schedule_html_downloading_schedules(context, user=False):
         'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:91.0)'
                       ' Gecko/20100101 Firefox/91.0'
     }
-    html_page = requests.get(DATASET_URL, headers=headers, timeout=10)
-    if html_page.status_code != 200:
+    try:
+        html_page = requests.get(DATASET_URL, headers=headers, timeout=2)
+    except RequestException:
         print('Сайт недоступен')
     else:
         soup = BeautifulSoup(html_page.text, "html.parser")
