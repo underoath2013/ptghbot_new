@@ -1,7 +1,8 @@
 from pymongo import MongoClient
 import settings
 
-client = MongoClient(settings.MONGO_LINK)
+# client = MongoClient(settings.MONGO_LINK)
+client = MongoClient(settings.MONGO_LINK, ssl=True, ssl_cert_reqs='CERT_NONE')
 
 db = client[settings.MONGO_DB]
 

@@ -7,3 +7,4 @@ requests==2.25.0
 urllib3==1.26.2
 yapf==0.30.0
 schedule~=1.0.0
+xlwings==0.24.9

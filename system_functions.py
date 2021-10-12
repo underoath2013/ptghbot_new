@@ -35,3 +35,46 @@ def parsing_changes_xlsx(sheet):
             result_efg = str(e_column) + str(f_column_split) + str(g_column)
             schedule.append(result_efg)
     return schedule
+
+
+def parsing_main_xlsx(sheet):
+    """  Обрабатывает excel файл основного расписания
+        :param sheet: лист книги
+        :type sheet: str
+    """
+    main_schedule = []
+    main_schedule_dict = {}
+    j = -1
+    k = 1
+    for i in range(20):
+        j = j + 3
+        k = k + 3
+        main_schedule.clear()
+        for row in range(5, 30):
+            column1 = sheet[row][j].value
+            if column1 is None:
+                continue
+            column2 = sheet[row][k].value
+            if column2 is None:
+                column2 = ''
+            result = str(column1) + ' ' + str(column2)
+            main_schedule.append(result)
+            main_schedule_dict[main_schedule[0]] = main_schedule[1:]
+
+    j = 60
+    k = 62
+    for i in range(8):
+        j = j + 3
+        k = k + 3
+        main_schedule.clear()
+        for row in range(5, 30):
+            column1 = sheet[row][j].value
+            if column1 is None:
+                continue
+            column2 = sheet[row][k].value
+            if column2 is None:
+                column2 = ''
+            result = str(column1) + ' ' + str(column2)
+            main_schedule.append(result)
+            main_schedule_dict[main_schedule[0]] = main_schedule[1:]
+    return main_schedule_dict

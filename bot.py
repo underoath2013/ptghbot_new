@@ -1,3 +1,4 @@
+import time
 from urllib.error import URLError
 
 from bs4 import BeautifulSoup
@@ -14,6 +15,7 @@ import re
 import requests
 from requests import RequestException
 import settings
+import sys
 from telegram import ReplyKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, ConversationHandler, \
     MessageHandler, Filters
@@ -21,11 +23,11 @@ from telegram.error import BadRequest, NetworkError, Unauthorized
 from urllib.request import Request, urlopen
 from urllib.parse import urlparse
 
-
 logging.basicConfig(
     filename="bot.log", level=logging.INFO, format=
     '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    )
+)
+
 
 # chat_id = update.effective_chat.id - получить chat.id текущего пользователя
 
@@ -45,7 +47,8 @@ def bot_commands(update, _):
 def main_keyboard():
     """ Клавиатура главного меню """
     return ReplyKeyboardMarkup(
-        [['Скачать основное', 'Скачать изменения'], ['Просмотреть изменения'],
+        [['Скачать основное', 'Скачать изменения'],
+         ['Просмотреть основное', 'Просмотреть изменения'],
          ['Команды бота', 'Звонки']], resize_keyboard=True
     )
 
@@ -104,9 +107,9 @@ def sending_notify_about_updating_schedules(schedule_folder, context):
         try:
             context.bot.send_message(chat_id=user['chat_id'],
                                      text=f'{schedule_folder} обновлено')
-        except Unauthorized:    # ловим ошибку, если юзер заблокировал бота
-            # выводим в консоль юзеров, заблокировавших бота
-            print(f"Пользователь {user['chat_id']} заблокировал бота")
+        except Unauthorized:  # ловим ошибку, если юзер заблокировал бота
+            # выводим в логи юзеров, заблокировавших бота
+            logging.info(f"User {user['chat_id']} has blocked the bot")
 
 
 def parsing_links_from_schedule_html_downloading_schedules(context, user=False):
@@ -129,14 +132,14 @@ def parsing_links_from_schedule_html_downloading_schedules(context, user=False):
     try:
         html_page = requests.get(DATASET_URL, headers=headers, timeout=2)
     except RequestException:
-        print('Сайт недоступен')
+        logging.error('Site unavailable')
     else:
         soup = BeautifulSoup(html_page.text, "html.parser")
         links = []
         # нет селектора, поиск идет по всем тегам <a>
         for item in soup.findAll('a'):
             links.append(item.get('href'))
-        for index, link in enumerate(links):    # кол-во итераций = кол-ву ссылок
+        for index, link in enumerate(links):  # кол-во итераций = кол-ву ссылок
             if (link.find('ismen_nov')) != -1:
                 changes_schedule_link = link
                 changes_schedule = urlparse(changes_schedule_link)
@@ -147,11 +150,11 @@ def parsing_links_from_schedule_html_downloading_schedules(context, user=False):
                 # имя скачиваемого файла, context
                 download_result = downloading_schedules(
                     changes_schedule_link, 'changes_schedule',
-                                      NAME_OF_CHANGES_SCHEDULE_FILE)
+                    NAME_OF_CHANGES_SCHEDULE_FILE)
                 if download_result is True and user is False:
                     sending_notify_about_updating_schedules(
                         'changes_schedule', context)
-                continue        # переход к следующей итерации
+                continue  # переход к следующей итерации
             if re.search(r'РАСПИСАНИЕ.*\.xlsx', link):
                 main_schedule_link = link
                 main_schedule = urlparse(main_schedule_link)
@@ -160,11 +163,11 @@ def parsing_links_from_schedule_html_downloading_schedules(context, user=False):
                 # передаем ссылку по которой качать, название папки,
                 # имя скачиваемого файла, context
                 download_result = downloading_schedules(
-                        main_schedule_link, 'main_schedule',
-                        NAME_OF_MAIN_SCHEDULE_FILE)
+                    main_schedule_link, 'main_schedule',
+                    NAME_OF_MAIN_SCHEDULE_FILE)
                 if download_result is True and user is False:
                     sending_notify_about_updating_schedules(
-                      'main_schedule', context)
+                        'main_schedule', context)
 
 
 def downloading_schedules(
@@ -177,7 +180,7 @@ def downloading_schedules(
     :param name_of_schedule_file: имя файла с расписанием
     :type name_of_schedule_file:
     """
-    if len(os.listdir(schedule_folder)) == 0:   # listdir возвращает список
+    if len(os.listdir(schedule_folder)) == 0:  # listdir возвращает список
         schedule_xlsx = requests.get(schedule_link)
         f = open(schedule_folder + '/' + name_of_schedule_file, "wb")
         f.write(schedule_xlsx.content)  # записывает content из get запроса
@@ -242,8 +245,8 @@ def show_dates_of_changes_schedule(update, _):
         update.message.reply_text('Изменений расписания не найдено на сайте')
     else:
         book = openpyxl.open(
-        'changes_schedule/' + NAME_OF_CHANGES_SCHEDULE_FILE,
-        read_only=True
+            'changes_schedule/' + NAME_OF_CHANGES_SCHEDULE_FILE,
+            read_only=True
         )
         my_keyboard = ReplyKeyboardMarkup(
             # выводим кнопки с датами и кнопку отмена
@@ -318,6 +321,69 @@ def print_changes_schedule(update, context):
     return ConversationHandler.END
 
 
+def show_dates_of_main_schedule(update, _):
+    """ Выводит список дат, доступных для выбора основного расписания"""
+    if NAME_OF_MAIN_SCHEDULE_FILE == '':
+        update.message.reply_text('Основного расписания не найдено на сайте')
+    else:
+        book = openpyxl.open(
+            'main_schedule/' + NAME_OF_MAIN_SCHEDULE_FILE,
+            read_only=True
+        )
+        my_keyboard = ReplyKeyboardMarkup(
+            # выводим кнопки с датами и кнопку отмена
+            [book.sheetnames, ['Отмена']], resize_keyboard=True)
+        update.message.reply_text(
+            "Основное расписание занятий Корпус 1 (ул. Мурманская, д. 30)\n"
+            "выберите дату:",
+            reply_markup=my_keyboard)
+        return "main_step_one"
+
+
+def choose_sheet_of_main_schedule(update, context):
+    """ Парсит по именам группы основное расписание на выбранную пользователем
+     дату, формирует словарь main_schedule_dict и записывает его во встроенный
+      словарь context.user_data, выводит список групп пользователю """
+    book = openpyxl.open(
+        'main_schedule/' + NAME_OF_MAIN_SCHEDULE_FILE,
+        read_only=True
+    )
+    user_text = update.message.text
+    context.user_data["dialog"] = {"sheet": user_text}
+    sheet = book[context.user_data["dialog"]["sheet"]]
+    parsed_main_schedule = system_functions.parsing_main_xlsx(sheet)
+    context.user_data["main_dict_groups"] = parsed_main_schedule
+    groups_of_main_list = list(parsed_main_schedule.keys())
+    n = 4
+    groups_of_main_names = [groups_of_main_list[i * n:(i + 1) * n] for i in range(
+        (len(groups_of_main_list) + n - 1) // n)]
+    # добавляем кнопку отмена к кнопкам с названием групп
+    groups_of_main_names.append(['Отмена'])
+    my_keyboard = ReplyKeyboardMarkup(
+        groups_of_main_names, resize_keyboard=True)
+    update.message.reply_text("Выберите группу:", reply_markup=my_keyboard)
+    return "main_step_two"
+
+
+def print_main_schedule(update, context):
+    """ Печатает расписание для выбранной пользователем группы """
+    context.user_data["dialog"]["group"] = update.message.text + ' '
+    print(context.user_data["dialog"]["group"])
+    print(context.user_data["main_dict_groups"])
+    main_schedule_of_selected_group = \
+        context.user_data["main_dict_groups"][context.user_data["dialog"]["group"]
+        ]
+    # context.user_data.clear() позволяет очищать словарь context.user_data
+    if len(main_schedule_of_selected_group) > 0:
+        update.message.reply_text(
+            str(main_schedule_of_selected_group).replace(
+                ',', '\n').replace('[', '').replace(']', '').replace("'", ""),
+            reply_markup=main_keyboard())
+    else:
+        update.message.reply_text("Удачи!", reply_markup=main_keyboard())
+    return ConversationHandler.END
+
+
 def main():
     mybot = Updater(settings.API_KEY, use_context=True)
     jq = mybot.job_queue
@@ -335,8 +401,8 @@ def main():
         states={
             "step_one": [
                 MessageHandler(
-                Filters.regex('\d\d.\d\d'),
-                choose_sheet_of_changes_schedule)],
+                    Filters.regex('\d\d.\d\d'),
+                    choose_sheet_of_changes_schedule)],
             "step_two": [
                 MessageHandler(Filters.regex(
                     r'(БД 12)|(БД 22)|(ИС 11)|(ИС 21)|(ИС 31)|'
@@ -358,8 +424,41 @@ def main():
                 # фото, видео, геолокацию
                 Filters.text | Filters.video | Filters.photo | Filters.document
                 | Filters.location, show_dontunderstand)]
-            )
+    )
+    dialog_main = ConversationHandler(
+        entry_points=[
+            MessageHandler(Filters.regex('^([Пп]росмотреть основное)$'),
+                           show_dates_of_main_schedule)
+        ],
+        states={
+            "main_step_one": [
+                MessageHandler(
+                    Filters.regex('\d\d.\d\d'),
+                    choose_sheet_of_main_schedule)],
+            "main_step_two": [
+                MessageHandler(Filters.regex(
+                    r'(БД 12)|(БД 22)|(ИС 11)|(ИС 21)|(ИС 31)|'
+                    r'(В 01)|(В 11)|(В 21)|(В 31)|'
+                    r'(ЗИ 11)|'
+                    r'(М 01)|(M 11)|(М 21)|(М 31)|'
+                    r'(ПД 12)|(ПД 13)|(ПД 22)|(ПД 23)|(ПД 24)|'
+                    r'(ПД 32)|(ПД 33)|(ПД 34)|'
+                    r'(ПСО 11)|(ПСО 12)|(ПСО 21)|(ПСО 22)|(ПСО 31)|(ПСО 32)|'
+                    r'(Т 11)|(Т 21)|(Т 31)|'
+                    r'(УД 01)|(УД 11)|(УД 21)|(УД 31)|(Э 12)|(Э 22)'),
+                    print_main_schedule)]
+        },
+        fallbacks=[
+            # при нажатии кнопки отмена выходим из диалога
+            MessageHandler(Filters.regex('^([Оо]тмена)$'), cancel_dialog),
+            MessageHandler(
+                # фильтры не дают пользователю ввести лишний текст, прислать
+                # фото, видео, геолокацию
+                Filters.text | Filters.video | Filters.photo | Filters.document
+                | Filters.location, show_dontunderstand)]
+    )
     dp.add_handler(dialog)
+    dp.add_handler(dialog_main)
     dp.add_handler(CommandHandler('subscribe', subscribe))
     dp.add_handler(CommandHandler('unsubscribe', unsubscribe))
     dp.add_handler(CommandHandler('show_rings', show_rings))
