@@ -349,27 +349,33 @@ def choose_sheet_of_main_schedule(update, context):
         read_only=True
     )
     user_text = update.message.text
+
     context.user_data["dialog"] = {"sheet": user_text}
     sheet = book[context.user_data["dialog"]["sheet"]]
-    parsed_main_schedule = system_functions.parsing_main_xlsx(sheet)
-    context.user_data["main_dict_groups"] = parsed_main_schedule
-    groups_of_main_list = list(parsed_main_schedule.keys())
-    n = 4
-    groups_of_main_names = [groups_of_main_list[i * n:(i + 1) * n] for i in range(
-        (len(groups_of_main_list) + n - 1) // n)]
-    # добавляем кнопку отмена к кнопкам с названием групп
-    groups_of_main_names.append(['Отмена'])
-    my_keyboard = ReplyKeyboardMarkup(
-        groups_of_main_names, resize_keyboard=True)
-    update.message.reply_text("Выберите группу:", reply_markup=my_keyboard)
-    return "main_step_two"
+    update.message.reply_text("Загружаю...")
+    if sheet[5][2].value is not None:
+        parsed_main_schedule = system_functions.parsing_main_xlsx(sheet)
+        context.user_data["main_dict_groups"] = parsed_main_schedule
+        groups_of_main_list = list(parsed_main_schedule.keys())
+        n = 4
+        groups_of_main_names = [groups_of_main_list[i * n:(i + 1) * n] for i in range(
+            (len(groups_of_main_list) + n - 1) // n)]
+        # добавляем кнопку отмена к кнопкам с названием групп
+        groups_of_main_names.append(['Отмена'])
+        my_keyboard = ReplyKeyboardMarkup(
+            groups_of_main_names, resize_keyboard=True)
+        update.message.reply_text("Выберите группу:", reply_markup=my_keyboard)
+        return "main_step_two"
+    else:
+        update.message.reply_text("На этот день ничего нет",
+                                  reply_markup=main_keyboard())
+        return ConversationHandler.END
 
 
 def print_main_schedule(update, context):
     """ Печатает расписание для выбранной пользователем группы """
+
     context.user_data["dialog"]["group"] = update.message.text + ' '
-    print(context.user_data["dialog"]["group"])
-    print(context.user_data["main_dict_groups"])
     main_schedule_of_selected_group = \
         context.user_data["main_dict_groups"][context.user_data["dialog"]["group"]
         ]
@@ -408,7 +414,7 @@ def main():
                     r'(БД 12)|(БД 22)|(ИС 11)|(ИС 21)|(ИС 31)|'
                     r'(В 01)|(В 11)|(В 21)|(В 31)|'
                     r'(ЗИ 11)|'
-                    r'(М 01)|(M 11)|(М 21)|(М 31)|'
+                    r'(М 01)|(М 11)|(М 21)|(М 31)|'
                     r'(ПД 12)|(ПД 13)|(ПД 22)|(ПД 23)|(ПД 24)|'
                     r'(ПД 32)|(ПД 33)|(ПД 34)|'
                     r'(ПСО 11)|(ПСО 12)|(ПСО 21)|(ПСО 22)|(ПСО 31)|(ПСО 32)|'
@@ -440,7 +446,7 @@ def main():
                     r'(БД 12)|(БД 22)|(ИС 11)|(ИС 21)|(ИС 31)|'
                     r'(В 01)|(В 11)|(В 21)|(В 31)|'
                     r'(ЗИ 11)|'
-                    r'(М 01)|(M 11)|(М 21)|(М 31)|'
+                    r'(М 01)|(М 11)|(М 21)|(М 31)|'
                     r'(ПД 12)|(ПД 13)|(ПД 22)|(ПД 23)|(ПД 24)|'
                     r'(ПД 32)|(ПД 33)|(ПД 34)|'
                     r'(ПСО 11)|(ПСО 12)|(ПСО 21)|(ПСО 22)|(ПСО 31)|(ПСО 32)|'

@@ -50,16 +50,20 @@ def parsing_main_xlsx(sheet):
         j = j + 3
         k = k + 3
         main_schedule.clear()
-        for row in range(5, 30):
+        row = 5
+        while row < 30:
             column1 = sheet[row][j].value
-            if column1 is None:
-                continue
             column2 = sheet[row][k].value
-            if column2 is None:
+            if column1 is None and column2 is None:
+                column1 = 'нет пары'
+                column2 = ''
+                row += 2
+            elif column2 is None:
                 column2 = ''
             result = str(column1) + ' ' + str(column2)
             main_schedule.append(result)
-            main_schedule_dict[main_schedule[0]] = main_schedule[1:]
+            row += 2
+        main_schedule_dict[main_schedule[0]] = main_schedule[1:]
 
     j = 60
     k = 62
@@ -67,14 +71,18 @@ def parsing_main_xlsx(sheet):
         j = j + 3
         k = k + 3
         main_schedule.clear()
-        for row in range(5, 30):
+        row = 5
+        while row < 30:
             column1 = sheet[row][j].value
-            if column1 is None:
-                continue
             column2 = sheet[row][k].value
-            if column2 is None:
+            if column1 is None and column2 is None:
+                column1 = 'нет пары'
+                column2 = ''
+                row += 2
+            elif column2 is None:
                 column2 = ''
             result = str(column1) + ' ' + str(column2)
             main_schedule.append(result)
-            main_schedule_dict[main_schedule[0]] = main_schedule[1:]
+            row += 2
+        main_schedule_dict[main_schedule[0]] = main_schedule[1:]
     return main_schedule_dict
