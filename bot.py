@@ -48,7 +48,7 @@ def main_keyboard():
     """ Клавиатура главного меню """
     return ReplyKeyboardMarkup(
         [['Скачать основное', 'Скачать изменения'],
-         ['Просмотреть основное', 'Просмотреть изменения'],
+         ['Просмотреть изменения'],
          ['Команды бота', 'Звонки']], resize_keyboard=True
     )
 
@@ -274,7 +274,7 @@ def choose_sheet_of_changes_schedule(update, context):
         r'(БД 12)|(БД 22)|(ИС 11)|(ИС 21)|(ИС 31)|'
         r'(В 01)|(В 11)|(В 21)|(В 31)|'
         r'(ЗИ 11)|'
-        r'(М 01)|(M 11)|(М 21)|(М 31)|'
+        r'(М 01)|(М 11)|(М 21)|(М 31)|'
         r'(ПД 12)|(ПД 13)|(ПД 22)|(ПД 23)|(ПД 24)|(ПД 32)|(ПД 33)|(ПД 34)|'
         r'(ПСО 11)|(ПСО 12)|(ПСО 21)|(ПСО 22)|(ПСО 31)|(ПСО 32)|'
         r'(Т 11)|(Т 21)|(Т 31)|'
@@ -314,7 +314,7 @@ def print_changes_schedule(update, context):
     if len(schedule_of_selected_group) > 0:
         update.message.reply_text(
             str(schedule_of_selected_group).replace(
-                ',', '\n').replace('[', '').replace(']', '').replace("'", ""),
+                ', ', '\n').replace('[', '').replace(']', '').replace("'", ""),
             reply_markup=main_keyboard())
     else:
         update.message.reply_text("Удачи!", reply_markup=main_keyboard())
@@ -333,6 +333,7 @@ def show_dates_of_main_schedule(update, _):
         my_keyboard = ReplyKeyboardMarkup(
             # выводим кнопки с датами и кнопку отмена
             [book.sheetnames, ['Отмена']], resize_keyboard=True)
+        print(book.sheetnames)
         update.message.reply_text(
             "Основное расписание занятий Корпус 1 (ул. Мурманская, д. 30)\n"
             "выберите дату:",
@@ -348,10 +349,12 @@ def choose_sheet_of_main_schedule(update, context):
         'main_schedule/' + NAME_OF_MAIN_SCHEDULE_FILE,
         read_only=True
     )
-    user_text = update.message.text
-
+    user_text = str(update.message.text)
+    print(user_text)
+    print(type(user_text))
     context.user_data["dialog"] = {"sheet": user_text}
     sheet = book[context.user_data["dialog"]["sheet"]]
+    print(book[context.user_data["dialog"]["sheet"]])
     update.message.reply_text("Загружаю...")
     if sheet[5][2].value is not None:
         parsed_main_schedule = system_functions.parsing_main_xlsx(sheet)
@@ -375,16 +378,20 @@ def choose_sheet_of_main_schedule(update, context):
 def print_main_schedule(update, context):
     """ Печатает расписание для выбранной пользователем группы """
 
-    context.user_data["dialog"]["group"] = update.message.text + ' '
+    context.user_data["dialog"]["group"] = update.message.text
     main_schedule_of_selected_group = \
         context.user_data["main_dict_groups"][context.user_data["dialog"]["group"]
         ]
     # context.user_data.clear() позволяет очищать словарь context.user_data
     if len(main_schedule_of_selected_group) > 0:
-        update.message.reply_text(
-            str(main_schedule_of_selected_group).replace(
-                ',', '\n').replace('[', '').replace(']', '').replace("'", ""),
-            reply_markup=main_keyboard())
+        for index, elem in enumerate(main_schedule_of_selected_group):
+            main_schedule_of_selected_group[index] = str(index+1) + ' п. ' + main_schedule_of_selected_group[index]
+        main_schedule_of_selected_group = str(main_schedule_of_selected_group).replace(
+            ',', '\n').replace('[', '').replace(']', '').replace("'", "")
+        # с помощью цикла проходим строку находя /n
+        # в этой же итерации убираем пробел за /n, если пробел есть
+        update.message.reply_text(main_schedule_of_selected_group,
+                                  reply_markup=main_keyboard())
     else:
         update.message.reply_text("Удачи!", reply_markup=main_keyboard())
     return ConversationHandler.END

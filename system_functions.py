@@ -46,43 +46,44 @@ def parsing_main_xlsx(sheet):
     main_schedule_dict = {}
     j = -1
     k = 1
-    for i in range(20):
+    for i in range(28):
         j = j + 3
         k = k + 3
-        main_schedule.clear()
-        row = 5
+        main_schedule = []
+        row = 7
         while row < 30:
-            column1 = sheet[row][j].value
-            column2 = sheet[row][k].value
-            if column1 is None and column2 is None:
-                column1 = 'нет пары'
-                column2 = ''
-                row += 2
-            elif column2 is None:
-                column2 = ''
-            result = str(column1) + ' ' + str(column2)
-            main_schedule.append(result)
-            row += 2
-        main_schedule_dict[main_schedule[0]] = main_schedule[1:]
+            cells_range = str(sheet[row][j].value) + ' ' + str(
+                sheet[row][k].value) \
+                          + ' ' + str(sheet[row + 2][j].value) + str(
+                sheet[row + 2][k].value)
+            result = cells_range.replace('None', '')
+            if result.replace(' ', '') == '':
+                result = 'нет пары'
+                main_schedule.append(result)
+            else:
+                main_schedule.append(result)
+            row += 4
+        main_schedule_dict[sheet[5][j].value] = main_schedule
 
-    j = 60
-    k = 62
-    for i in range(8):
-        j = j + 3
-        k = k + 3
-        main_schedule.clear()
-        row = 5
-        while row < 30:
-            column1 = sheet[row][j].value
-            column2 = sheet[row][k].value
-            if column1 is None and column2 is None:
-                column1 = 'нет пары'
-                column2 = ''
-                row += 2
-            elif column2 is None:
-                column2 = ''
-            result = str(column1) + ' ' + str(column2)
-            main_schedule.append(result)
-            row += 2
-        main_schedule_dict[main_schedule[0]] = main_schedule[1:]
+    # j = 60
+    # k = 62
+    # for i in range(8):
+    #     j = j + 3
+    #     k = k + 3
+    #     main_schedule = []
+    #     row = 7
+    #     while row < 30:
+    #         cells_range = str(sheet[row][j].value) + ' ' + str(
+    #             sheet[row][k].value) \
+    #                       + ' ' + str(sheet[row + 2][j].value) + str(
+    #             sheet[row + 2][k].value)
+    #         result = cells_range.replace('None', '')
+    #         if result.replace(' ', '') == '':
+    #             result = 'нет пары'
+    #             main_schedule.append(result)
+    #         else:
+    #             main_schedule.append(result)
+    #         row += 4
+    #     main_schedule_dict[sheet[5][j].value] = main_schedule
+
     return main_schedule_dict
