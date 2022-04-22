@@ -11,6 +11,7 @@ import openpyxl
 import os.path
 import system_functions
 from random import choice
+import pickle
 import re
 import requests
 from requests import RequestException
@@ -151,10 +152,14 @@ def parsing_links_from_schedule_html_downloading_schedules(context, user=False):
                 download_result = downloading_schedules(
                     changes_schedule_link, 'changes_schedule',
                     NAME_OF_CHANGES_SCHEDULE_FILE)
-                if download_result is True and user is False:
-                    sending_notify_about_updating_schedules(
-                        'changes_schedule', context)
-                continue  # переход к следующей итерации
+                if download_result is True:
+                    # если есть новое расписание, то парсим его полностью и формируем pickle файл
+                    parsing_data(NAME_OF_CHANGES_SCHEDULE_FILE)
+                    if user is False:
+                    # дополнительно, если отработал job_queue, то отсылаем уведомление юзеру
+                        sending_notify_about_updating_schedules(
+                            'changes_schedule', context)
+                    continue  # переход к следующей итерации
             if re.search(r'РАСПИСАНИЕ.*\.xlsx', link):
                 main_schedule_link = link
                 main_schedule = urlparse(main_schedule_link)
@@ -178,7 +183,7 @@ def downloading_schedules(
     :param schedule_folder: директория в которой находится файл
     :type schedule_folder: str
     :param name_of_schedule_file: имя файла с расписанием
-    :type name_of_schedule_file:
+    :type name_of_schedule_file: str
     """
     if len(os.listdir(schedule_folder)) == 0:  # listdir возвращает список
         schedule_xlsx = requests.get(schedule_link)
@@ -187,8 +192,9 @@ def downloading_schedules(
         f.close()
         print(f'Расписание скачано в {schedule_folder}')
         return True  # запомним результат как True, если функция отработала
-    elif os.listdir(schedule_folder)[0] != name_of_schedule_file:
-        os.remove(schedule_folder + '/' + os.listdir(schedule_folder)[0])
+    elif name_of_schedule_file not in os.listdir(schedule_folder):
+        for file in os.listdir(schedule_folder):
+            os.remove(schedule_folder + '/' + file)
         schedule_xlsx = requests.get(schedule_link)
         f = open(schedule_folder + '/' + name_of_schedule_file, "wb")
         f.write(schedule_xlsx.content)  # записывает content из get запроса
@@ -196,6 +202,43 @@ def downloading_schedules(
         print(f'Расписание обновлено в {schedule_folder}')
         return True  # запомним результат как True, если функция отработала
     return False  # запомним результат как False, если функция не отработала
+
+
+def parsing_data(name_of_schedule_file):
+    """ Парсит данные их эксель файла в структуру словаря, формирует pickle dump
+        :param name_of_schedule_file: название файла с расписанием
+        :type name_of_schedule_file: str
+        """
+    book = openpyxl.open(
+        'changes_schedule/' + name_of_schedule_file,
+        read_only=True
+    )
+    pickled_schedule_dict = {}
+    for sheetname in book.sheetnames:
+        parsed_schedule = system_functions.parsing_changes_xlsx(book[sheetname])
+        groups = re.compile(
+            r'(БД 12)|(БД 22)|(ИС 11)|(ИС 21)|(ИС 31)|'
+            r'(В 01)|(В 11)|(В 21)|(В 31)|'
+            r'(ЗИ 11)|'
+            r'(М 01)|(М 11)|(М 21)|(М 31)|'
+            r'(ПД 12)|(ПД 13)|(ПД 22)|(ПД 23)|(ПД 24)|(ПД 32)|(ПД 33)|(ПД 34)|'
+            r'(ПСО 11)|(ПСО 12)|(ПСО 21)|(ПСО 22)|(ПСО 31)|(ПСО 32)|'
+            r'(Т 11)|(Т 21)|(Т 31)|'
+            r'(УД 01)|(УД 11)|(УД 21)|(УД 31)|(Э 12)|(Э 22)')
+        idx1 = [i for i, item in enumerate(parsed_schedule) if
+                re.search(groups, item)]
+        dict_groups = {}
+        for i in range(len(idx1) - 1):
+            slices = parsed_schedule[idx1[i]:idx1[i + 1]]
+            dict_groups[slices[0]] = slices[1:]
+        try:
+            last_slice = parsed_schedule[idx1[-1]:] # exception here
+            dict_groups[last_slice[0]] = last_slice[1:]
+            pickled_schedule_dict[sheetname] = dict_groups
+        except IndexError:
+            pickled_schedule_dict[sheetname] = 'На этот день еще ничего нет'
+    with open('changes_schedule/pickled_schedule_dict.pickle', 'wb') as f:
+        pickle.dump(pickled_schedule_dict, f)
 
 
 def send_main_schedule(update, context):
@@ -206,11 +249,8 @@ def send_main_schedule(update, context):
                                   'не найдено на сайте, '
                                   'но у меня есть старая версия, '
                                   'используй внимательно')
-        context.bot.send_document(
-            chat_id=user['chat_id'], document=open(
-                'main_schedule/' + os.listdir('main_schedule')[0],
-                'rb'),
-            reply_markup=main_keyboard())
+        context.bot.send_document(chat_id=user['chat_id'], document=open(
+            glob.glob("main_schedule/*.xlsx")[0], 'rb'), reply_markup=main_keyboard())
     else:
         context.bot.send_document(
             chat_id=user['chat_id'], document=open(
@@ -227,11 +267,8 @@ def send_changes_schedule(update, context):
                                   'не найдено на сайте, '
                                   'но у меня есть старая версия, '
                                   'используй внимательно')
-        context.bot.send_document(
-            chat_id=user['chat_id'], document=open(
-                'changes_schedule/' + os.listdir(
-                    'changes_schedule')[0], 'rb'),
-            reply_markup=main_keyboard())
+        context.bot.send_document(chat_id=user['chat_id'], document=open(
+            glob.glob("changes_schedule/*.xlsx")[0], 'rb'), reply_markup=main_keyboard())
     else:
         context.bot.send_document(
             chat_id=user['chat_id'], document=open(
@@ -244,13 +281,11 @@ def show_dates_of_changes_schedule(update, _):
     if NAME_OF_CHANGES_SCHEDULE_FILE == '':
         update.message.reply_text('Изменений расписания не найдено на сайте')
     else:
-        book = openpyxl.open(
-            'changes_schedule/' + NAME_OF_CHANGES_SCHEDULE_FILE,
-            read_only=True
-        )
+        with open('changes_schedule/' + 'pickled_schedule_dict.pickle', 'rb') as f:
+            pickled_schedule_dict = pickle.load(f)
         my_keyboard = ReplyKeyboardMarkup(
             # выводим кнопки с датами и кнопку отмена
-            [book.sheetnames, ['Отмена']], resize_keyboard=True)
+            [pickled_schedule_dict.keys(), ['Отмена']], resize_keyboard=True)
         update.message.reply_text(
             "Изменения к расписанию занятий Корпус 1 (ул. Мурманская, д. 30)\n"
             "выберите дату:",
@@ -262,38 +297,16 @@ def choose_sheet_of_changes_schedule(update, context):
     """ Парсит по именам группы расписание на выбранную пользователем дату,
     формирует словарь dict_groups и записывает его во встроенный словарь
     context.user_data, выводит списко групп пользователю """
-    book = openpyxl.open(
-        'changes_schedule/' + NAME_OF_CHANGES_SCHEDULE_FILE,
-        read_only=True
-    )
     user_text = update.message.text
-    context.user_data["dialog"] = {"sheet": user_text}
-    sheet = book[context.user_data["dialog"]["sheet"]]
-    parsed_schedule = system_functions.parsing_changes_xlsx(sheet)
-    groups = re.compile(
-        r'(БД 12)|(БД 22)|(ИС 11)|(ИС 21)|(ИС 31)|'
-        r'(В 01)|(В 11)|(В 21)|(В 31)|'
-        r'(ЗИ 11)|'
-        r'(М 01)|(М 11)|(М 21)|(М 31)|'
-        r'(ПД 12)|(ПД 13)|(ПД 22)|(ПД 23)|(ПД 24)|(ПД 32)|(ПД 33)|(ПД 34)|'
-        r'(ПСО 11)|(ПСО 12)|(ПСО 21)|(ПСО 22)|(ПСО 31)|(ПСО 32)|'
-        r'(Т 11)|(Т 21)|(Т 31)|'
-        r'(УД 01)|(УД 11)|(УД 21)|(УД 31)|(Э 12)|(Э 22)')
-    idx1 = [i for i, item in enumerate(parsed_schedule) if
-            re.search(groups, item)]
-    dict_groups = {}
-    for i in range(len(idx1) - 1):
-        slices = parsed_schedule[idx1[i]:idx1[i + 1]]
-        dict_groups[slices[0]] = slices[1:]
-    try:
-        last_slice = parsed_schedule[idx1[-1]:]
-    except IndexError:
-        update.message.reply_text("На этот день ничего нет",
-                                  reply_markup=main_keyboard())
+    context.user_data["dialog"] = {"day": user_text}
+    with open('changes_schedule/' + 'pickled_schedule_dict.pickle', 'rb') as f:
+        pickled_schedule_dict = pickle.load(f)
+    schedule_for_selected_day = pickled_schedule_dict[context.user_data["dialog"]["day"]]
+    #context.user_data["dict_groups"] = dict_groups ранее сохраняли во встроенный словарь user data
+    if isinstance(schedule_for_selected_day, str):
+        update.message.reply_text(schedule_for_selected_day, reply_markup=main_keyboard())
         return ConversationHandler.END
-    dict_groups[last_slice[0]] = last_slice[1:]
-    context.user_data["dict_groups"] = dict_groups
-    groups_list = list(dict_groups.keys())
+    groups_list = list(schedule_for_selected_day.keys())
     n = 4
     groups_names = [groups_list[i * n:(i + 1) * n] for i in range(
         (len(groups_list) + n - 1) // n)]
@@ -307,10 +320,12 @@ def choose_sheet_of_changes_schedule(update, context):
 
 def print_changes_schedule(update, context):
     """ Печатает расписание для выбранной пользователем группы """
+    with open('changes_schedule/' + 'pickled_schedule_dict.pickle', 'rb') as f:
+        pickled_schedule_dict = pickle.load(f)
     context.user_data["dialog"]["group"] = update.message.text
-    schedule_of_selected_group = \
-        context.user_data["dict_groups"][context.user_data["dialog"]["group"]]
+    #context.user_data["dict_groups"][context.user_data["dialog"]["group"]] ранее читали из встроенного словаря user data
     # context.user_data.clear() позволяет очищать словарь context.user_data
+    schedule_of_selected_group = pickled_schedule_dict[context.user_data["dialog"]["day"]][context.user_data["dialog"]["group"]]
     if len(schedule_of_selected_group) > 0:
         update.message.reply_text(
             str(schedule_of_selected_group).replace(
@@ -321,6 +336,8 @@ def print_changes_schedule(update, context):
     return ConversationHandler.END
 
 
+# начало блока чтения и парсинга основного расписания, сейчас недоступен, т.к. основное выложено полностью за все дни
+# из def main_keyboard() убрана кнопка просмотра основного расписания
 def show_dates_of_main_schedule(update, _):
     """ Выводит список дат, доступных для выбора основного расписания"""
     if NAME_OF_MAIN_SCHEDULE_FILE == '':
@@ -395,6 +412,7 @@ def print_main_schedule(update, context):
     else:
         update.message.reply_text("Удачи!", reply_markup=main_keyboard())
     return ConversationHandler.END
+#конец блока чтения и парсинга основного расписания
 
 
 def main():
