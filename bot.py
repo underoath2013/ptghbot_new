@@ -283,9 +283,17 @@ def show_dates_of_changes_schedule(update, _):
     else:
         with open('changes_schedule/' + 'pickled_schedule_dict.pickle', 'rb') as f:
             pickled_schedule_dict = pickle.load(f)
-        my_keyboard = ReplyKeyboardMarkup(
-            # выводим кнопки с датами и кнопку отмена
-            [pickled_schedule_dict.keys(), ['Отмена']], resize_keyboard=True)
+        dates_list = list(pickled_schedule_dict.keys())
+        n = 6
+        dates_names = [dates_list[i * n:(i + 1) * n] for i in range(
+            (len(dates_list) + n - 1) // n)]
+        # добавляем кнопку отмена к кнопкам с датами
+        dates_names.append(['Отмена'])
+        # старый вариант клавиатуры
+        # my_keyboard = ReplyKeyboardMarkup(
+        #     # выводим кнопки с датами и кнопку отмена
+        #     [pickled_schedule_dict.keys(), ['Отмена']], resize_keyboard=True)
+        my_keyboard = ReplyKeyboardMarkup(dates_names, resize_keyboard=True)
         update.message.reply_text(
             "Изменения к расписанию занятий Корпус 1 (ул. Мурманская, д. 30)\n"
             "выберите дату:",
