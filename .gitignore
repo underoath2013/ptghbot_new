@@ -3,6 +3,8 @@ __pycache__/
 *.log
 .vscode/
 .idea/
+changes_schedule/
+main_schedule/
 env/
 venv/
 images/
